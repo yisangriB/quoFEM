@@ -669,7 +669,7 @@ SurrogateMFInputWidget::outputToJSON(QJsonObject &jsonObj){
         jsonObj["timeLimit"]=timeMeasure->text().toDouble();
         jsonObj["accuracyLimit"]=accuracyMeasure->text().toDouble();
         //jsonObj["doDoE"]=theDoECheckBox->isChecked();
-        jsonObj["doDoE"]=0;
+        jsonObj["doDoE"]=false;
         jsonObj["parallelExecution"]=parallelCheckBox->isChecked();
     }
 
@@ -842,7 +842,7 @@ SurrogateMFInputWidget::inputFromJSON(QJsonObject &jsonObject){
         if (jsonObject.contains("seed") && jsonObject.contains("doDoE")) {
             double seed=jsonObject["seed"].toDouble();
             randomSeed->setText(QString::number(seed));
-            theDoECheckBox->setChecked(jsonObject["doDoE"].toBool());
+            //theDoECheckBox->setChecked(jsonObject["doDoE"].toBool());
         } else {
             result = false;
         }
