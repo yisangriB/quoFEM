@@ -67,12 +67,12 @@ SimCenterUQEngine::SimCenterUQEngine(InputWidgetParameters *param,InputWidgetFEM
 : UQ_Engine(parent), theCurrentEngine(0), theParameters(param), theFemWidget(femWidget), theEdpWidget(edpWidget)
 {
 
-    QVBoxLayout *layout = new QVBoxLayout();
+    // this >> verticalLayout >> title and Sa >> fem(frame) >> femLayout
 
-    //
-    // the selection part
-    //
+    QVBoxLayout *verticalLayout = new QVBoxLayout();
+    //verticalLayout->setMargin(0);
 
+    // Title layout
     QHBoxLayout *theSelectionLayout = new QHBoxLayout();
     QLabel *label = new QLabel();
     label->setText(QString("SimCenterUQ Method Category"));
@@ -85,7 +85,24 @@ SimCenterUQEngine::SimCenterUQEngine(InputWidgetParameters *param,InputWidgetFEM
     theSelectionLayout->addWidget(label);
     theSelectionLayout->addWidget(theEngineSelectionBox);
     theSelectionLayout->addStretch();
-    layout->addLayout(theSelectionLayout);
+    verticalLayout->addLayout(theSelectionLayout);
+
+    // Scroll Area (Sa)
+    QScrollArea *sa = new QScrollArea;
+    sa->setWidgetResizable(true);
+    sa->setLineWidth(0);
+    sa->setFrameShape(QFrame::NoFrame);
+    verticalLayout->addWidget(sa);
+
+    QFrame *simUQframe = new QFrame();
+    simUQframe->setFrameShape(QFrame::NoFrame);
+    simUQframe->setLineWidth(0);
+    sa->setWidget(simUQframe);
+
+    //QVBoxLayout *layout = new QVBoxLayout();
+    //
+    // the selection part
+    //
 
     //
     // create the stacked widget
@@ -105,9 +122,13 @@ SimCenterUQEngine::SimCenterUQEngine(InputWidgetParameters *param,InputWidgetFEM
     theStackedWidget->addWidget(theSensitivityEngine);
     theStackedWidget->addWidget(theSurrogateEngine);
 
+    QVBoxLayout *containingLayout = new QVBoxLayout();
+    containingLayout->addWidget(theStackedWidget);
+    simUQframe->setLayout(containingLayout);
+    //layout->addWidget(theStackedWidget);
 
-    layout->addWidget(theStackedWidget);
-    this->setLayout(layout);
+    this->setLayout(verticalLayout);
+
     theCurrentEngine = theSamplingEngine;
 //    this->setLayout(layout);
 //    theCurrentEngine = theSensitivityEngine;

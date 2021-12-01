@@ -325,9 +325,9 @@ SurrogateMFInputWidget::SurrogateMFInputWidget(InputWidgetParameters *param,Inpu
 
     // Do DoE
 
-//    theDoECheckBox = new QCheckBox();
-//    theSimGrid->addWidget(new QLabel("   Do Adaptive Design of Experiments"), id_fe, 0);
-//    theSimGrid->addWidget(theDoECheckBox, id_fe++, 1);
+    theDoECheckBox = new QCheckBox();
+    theSimGrid->addWidget(new QLabel("   Do Adaptive Design of Experiments"), id_fe, 0);
+    theSimGrid->addWidget(theDoECheckBox, id_fe++, 1);
 
     theSimGrid->setColumnStretch(2,1);
     theSimGrid->setRowStretch(4,1);
@@ -543,11 +543,11 @@ void SurrogateMFInputWidget::setLowSim(bool tog)
     theExistingCheckBox_LF->setChecked(!tog);
 
     // Temporary
-    if (theLowSimButton->isChecked() && theHighSimButton->isChecked()) {
-        errorMessage("Currently, the option to use both high- and low-fidelity models is not supported");
-        theLowSimButton->setChecked(false);
-        return;
-    }
+//    if (theLowSimButton->isChecked() && theHighSimButton->isChecked()) {
+//        errorMessage("Currently, the option to use both high- and low-fidelity models is not supported");
+//        theLowSimButton->setChecked(false);
+//        return;
+//    }
 
     if (theLowSimButton->isChecked() && theHighSimButton->isChecked()) {
         theEdpWidget->setGPQoINames(QStringList("") );
@@ -585,11 +585,11 @@ void SurrogateMFInputWidget::setLowSim(bool tog)
 void SurrogateMFInputWidget::setHighSim(bool tog) {
 
     // Temporary
-    if (theHighSimButton->isChecked() && theLowSimButton->isChecked()) {
-        errorMessage("Currently, the option to use both high- and low-fidelity models is not supported");
-        theHighSimButton->setChecked(false);
-        return;
-    }
+//    if (theHighSimButton->isChecked() && theLowSimButton->isChecked()) {
+//        errorMessage("Currently, the option to use both high- and low-fidelity models is not supported");
+//        theHighSimButton->setChecked(false);
+//        return;
+//    }
 
     theExistingCheckBox_HF->setChecked(!tog);
 
@@ -668,8 +668,8 @@ SurrogateMFInputWidget::outputToJSON(QJsonObject &jsonObj){
         jsonObj["seed"]=randomSeed->text().toInt();
         jsonObj["timeLimit"]=timeMeasure->text().toDouble();
         jsonObj["accuracyLimit"]=accuracyMeasure->text().toDouble();
-        //jsonObj["doDoE"]=theDoECheckBox->isChecked();
-        jsonObj["doDoE"]=false;
+        jsonObj["doDoE"]=theDoECheckBox->isChecked();
+        //jsonObj["doDoE"]=false;
         jsonObj["parallelExecution"]=parallelCheckBox->isChecked();
     }
 
@@ -842,7 +842,7 @@ SurrogateMFInputWidget::inputFromJSON(QJsonObject &jsonObject){
         if (jsonObject.contains("seed") && jsonObject.contains("doDoE")) {
             double seed=jsonObject["seed"].toDouble();
             randomSeed->setText(QString::number(seed));
-            //theDoECheckBox->setChecked(jsonObject["doDoE"].toBool());
+            theDoECheckBox->setChecked(jsonObject["doDoE"].toBool());
         } else {
             result = false;
         }
