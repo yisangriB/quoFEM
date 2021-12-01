@@ -852,9 +852,7 @@ QStringList FEM::parseGPInputs(QString file1){
             else if ((widget = item->widget()) != 0) {widget->hide(); delete widget;}
             else {delete item;}
         }
-
     }
-
 
     QFile file(file1);
     QString appName, mainScriptDir,postScriptDir;

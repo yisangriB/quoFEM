@@ -249,7 +249,8 @@ int main(int argc, const char **argv) {
     json_object_set(copiedInput, "randomVariables", copiedRV);
 
 
-    std::string jsonFileName = "dakota."+ std::to_string(tag) +".json";
+    //std::string jsonFileName = "dakota."+ std::to_string(tag) +".json";
+    std::string jsonFileName = "dakota.json";
     //int rc = json_dump_file(copiedInput, fileName.c_str(), JSON_INDENT(1));
     int rc = json_dump_file(copiedInput, ("./" + jsonFileName).c_str(),  JSON_INDENT(1));
     if (rc) {

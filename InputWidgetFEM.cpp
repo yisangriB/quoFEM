@@ -225,14 +225,25 @@ InputWidgetFEM::femProgramChanged(const QString& arg1) {
 }
 
 QString InputWidgetFEM::getApplicationName(void) {
-
     return femSelection->currentText();
 }
 
+QVector<QString> InputWidgetFEM::getSubApplicationNames(void) {
+    QVector<QString> appNames;
+    int nFEM = theFEMs.size();
+    for(int i=0; i<nFEM; i++){
+        appNames.push_back(theFEMs.at(i)->getApplicationName());
+    }
+    return appNames;
+}
 
-QString InputWidgetFEM::getMainInput(void) {
-    FEM *theFEM = theFEMs.at(0);
-    return theFEM->getMainInput();
+QVector<QString> InputWidgetFEM::getMainInput(void) {
+    QVector<QString> inputFileNames;
+    int nFEM = theFEMs.size();
+    for(int i=0; i<nFEM; i++){
+        inputFileNames.push_back(theFEMs.at(i)->getMainInput());
+    }
+    return inputFileNames;
 }
 
 QVector< QString > InputWidgetFEM::getCustomInputs() const {
@@ -243,8 +254,14 @@ QVector< QString > InputWidgetFEM::getCustomInputs() const {
 void
 InputWidgetFEM::specialCopyMainInput(QString fileName, QStringList varNames) {
 
-    FEM *theFEM = theFEMs.at(0);
-    return theFEM->specialCopyMainInput(fileName, varNames);
+    int nFEM = theFEMs.size();
+    if (nFEM==1) {
+        theFEMs.at(0)->specialCopyMainInput(fileName, varNames);
+    } else {
+        for (int i=0; i < nFEM ; i++){
+            theFEMs.at(i)->specialCopyMainInput(fileName, varNames);
+        }
+    }
 }
 
 void InputWidgetFEM::addFEM(int i)
@@ -350,7 +367,7 @@ InputWidgetFEM::inputFromJSON(QJsonObject &jsonObject)
     bool result = true;
 
     // if UQ has disabled FEM, don't load FEM part
-    if (!femSelection->isEnabled())
+    if (!femSelection->isEnabled() && !(femSelection->currentText() == "MultipleModels"))
         return true;
 
     if (jsonObject.contains("fem")) {

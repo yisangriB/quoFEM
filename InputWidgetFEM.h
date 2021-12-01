@@ -68,7 +68,8 @@ public:
     void specialCopyMainInput(QString fileName, QStringList varNames);
     QVector< QString > getCustomInputs() const;
     QString getApplicationName(void);
-    QString getMainInput(void);
+    QVector<QString> getSubApplicationNames(void);
+    QVector<QString> getMainInput(void);
     void parseAllInputfiles(void);
 
 signals:
