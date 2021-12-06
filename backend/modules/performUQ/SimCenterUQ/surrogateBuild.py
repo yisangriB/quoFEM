@@ -370,103 +370,104 @@ class GpFromModel(object):
                     X_tmp = np.zeros((0, x_dim))
                     Y_tmp = np.zeros((0, y_dim))
 
+                if user_init < 0:
+                    n_init_ref = min(4 * x_dim, thr_count + n_ex - 1, 500)
+                    if self.do_parallel:
+                        n_init_ref = int(
+                            np.ceil(n_init_ref / self.n_processor) * self.n_processor)  # Let's not waste resource
+                    if n_init_ref > n_ex:
+                        n_init = n_init_ref - n_ex
+                    else:
+                        n_init = 0
+                else:
+                    n_init = user_init
+
+
             if self.do_mf:
-                if self.use_existing_hf:
-                    X_tmp = read_txt(self.inpData,errlog)
-                    Y_tmp = read_txt(self.outData,errlog)
-                    n_ex = X_tmp.shape[0]
+                if self.hf_is_model:
+                    if self.use_existing_hf:
+                        X_tmp = read_txt(self.inpData,errlog)
+                        Y_tmp = read_txt(self.outData,errlog)
+                        n_ex = X_tmp.shape[0]
 
-                    if self.do_mf:
-                        if X_tmp.shape[1] != self.X_hf.shape[1]:
-                            msg = 'Error importing input data: dimension inconsistent: high fidelity data have {} RV column(s) but low fidelity model have {}.'.format(
-                                self.X_hf.shape[1], X_tmp.shape[1])
+                        if self.do_mf:
+                            if X_tmp.shape[1] != self.X_hf.shape[1]:
+                                msg = 'Error importing input data: dimension inconsistent: high fidelity data have {} RV column(s) but low fidelity model have {}.'.format(
+                                    self.X_hf.shape[1], X_tmp.shape[1])
+                                errlog.exit(msg)
+
+                            if Y_tmp.shape[1] != self.Y_hf.shape[1]:
+                                msg = 'Error importing input data: dimension inconsistent: high fidelity data have {} QoI column(s) but low fidelity model have {}.'.format(
+                                    self.Y_hf.shape[1], Y_tmp.shape[1])
+                                errlog.exit(msg)
+
+                        if X_tmp.shape[1] != x_dim:
+                            msg = 'Error importing input data: dimension inconsistent: have {} RV(s) but have {} column(s).'.format(
+                                x_dim, X_tmp.shape[1])
                             errlog.exit(msg)
 
-                        if Y_tmp.shape[1] != self.Y_hf.shape[1]:
-                            msg = 'Error importing input data: dimension inconsistent: high fidelity data have {} QoI column(s) but low fidelity model have {}.'.format(
-                                self.Y_hf.shape[1], Y_tmp.shape[1])
+                        if Y_tmp.shape[1] != y_dim:
+                            msg = 'Error importing input data: dimension inconsistent: have {} QoI(s) but have {} column(s).'.format(
+                                y_dim, Y_tmp.shape[1])
                             errlog.exit(msg)
 
-                    if X_tmp.shape[1] != x_dim:
-                        msg = 'Error importing input data: dimension inconsistent: have {} RV(s) but have {} column(s).'.format(
-                            x_dim, X_tmp.shape[1])
-                        errlog.exit(msg)
-
-                    if Y_tmp.shape[1] != y_dim:
-                        msg = 'Error importing input data: dimension inconsistent: have {} QoI(s) but have {} column(s).'.format(
-                            y_dim, Y_tmp.shape[1])
-                        errlog.exit(msg)
-
-                    if n_ex != Y_tmp.shape[0]:
-                        msg = 'Error importing input data: numbers of samples of inputs ({}) and outputs ({}) are inconsistent'.format(n_ex, Y_tmp.shape[0])
-                        errlog.exit(msg)
-                else:
-                    n_ex = 0
-                    if user_init ==0:
-                        #msg = 'Error reading json: # of initial DoE should be greater than 0'
-                        #errlog.exit(msg)
-                        user_init = -1;
-                    X_tmp = np.zeros((0, x_dim))
-                    Y_tmp = np.zeros((0, y_dim))
-
-                if self.use_existing_lf:
-                    X_tmp_lf = read_txt(self.inpData_lf, errlog)
-                    Y_tmp_lf = read_txt(self.outData_lf, errlog)
-                    n_ex = X_tmp_lf.shape[0]
-                    if self.do_mf:
-                        if X_tmp_lf.shape[1] != self.X_lf.shape[1]:
-                            msg = 'Error importing input data: dimension inconsistent: high fidelity data have {} RV column(s) but low fidelity model have {}.'.format(
-                                self.X_lf.shape[1], X_tmp_lf.shape[1])
+                        if n_ex != Y_tmp.shape[0]:
+                            msg = 'Error importing input data: numbers of samples of inputs ({}) and outputs ({}) are inconsistent'.format(n_ex, Y_tmp.shape[0])
                             errlog.exit(msg)
-                        if Y_tmp_lf.shape[1] != self.Y_lf.shape[1]:
-                            msg = 'Error importing input data: dimension inconsistent: high fidelity data have {} QoI column(s) but low fidelity model have {}.'.format(
-                                self.Y_lf.shape[1], Y_tmp_lf.shape[1])
+                    else:
+                        n_ex = 0
+                        if user_init ==0:
+                            #msg = 'Error reading json: # of initial DoE should be greater than 0'
+                            #errlog.exit(msg)
+                            user_init = -1;
+                        X_tmp = np.zeros((0, x_dim))
+                        Y_tmp = np.zeros((0, y_dim))
+
+                if self.lf_is_model:
+                    if self.use_existing_lf:
+                        X_tmp_lf = read_txt(self.inpData_lf, errlog)
+                        Y_tmp_lf = read_txt(self.outData_lf, errlog)
+                        n_ex = X_tmp_lf.shape[0]
+                        if self.do_mf:
+                            if X_tmp_lf.shape[1] != self.X_lf.shape[1]:
+                                msg = 'Error importing input data: dimension inconsistent: high fidelity data have {} RV column(s) but low fidelity model have {}.'.format(
+                                    self.X_lf.shape[1], X_tmp_lf.shape[1])
+                                errlog.exit(msg)
+                            if Y_tmp_lf.shape[1] != self.Y_lf.shape[1]:
+                                msg = 'Error importing input data: dimension inconsistent: high fidelity data have {} QoI column(s) but low fidelity model have {}.'.format(
+                                    self.Y_lf.shape[1], Y_tmp_lf.shape[1])
+                                errlog.exit(msg)
+                        if X_tmp_lf.shape[1] != x_dim:
+                            msg = 'Error importing input data: dimension inconsistent: have {} RV(s) but have {} column(s).'.format(
+                                x_dim, X_tmp_lf.shape[1])
                             errlog.exit(msg)
-                    if X_tmp_lf.shape[1] != x_dim:
-                        msg = 'Error importing input data: dimension inconsistent: have {} RV(s) but have {} column(s).'.format(
-                            x_dim, X_tmp_lf.shape[1])
-                        errlog.exit(msg)
-                    if Y_tmp_lf.shape[1] != y_dim:
-                        msg = 'Error importing input data: dimension inconsistent: have {} QoI(s) but have {} column(s).'.format(
-                            y_dim, Y_tmp_lf.shape[1])
-                        errlog.exit(msg)
-                    if n_ex != Y_tmp_lf.shape[0]:
-                        msg = 'Error importing input data: numbers of samples of inputs ({}) and outputs ({}) are inconsistent'.format(
-                            n_ex, Y_tmp_lf.shape[0])
-                        errlog.exit(msg)
-                else:
-                    n_ex_lf = 0
-                    if user_init_lf == 0:
-                         user_init_lf = -1;
-                    X_tmp_lf = np.zeros((0, x_dim))
-                    Y_tmp_lf = np.zeros((0, y_dim))
+                        if Y_tmp_lf.shape[1] != y_dim:
+                            msg = 'Error importing input data: dimension inconsistent: have {} QoI(s) but have {} column(s).'.format(
+                                y_dim, Y_tmp_lf.shape[1])
+                            errlog.exit(msg)
+                        if n_ex != Y_tmp_lf.shape[0]:
+                            msg = 'Error importing input data: numbers of samples of inputs ({}) and outputs ({}) are inconsistent'.format(
+                                n_ex, Y_tmp_lf.shape[0])
+                            errlog.exit(msg)
+                    else:
+                        n_ex_lf = 0
+                        if user_init_lf == 0:
+                             user_init_lf = -1;
+                        X_tmp_lf = np.zeros((0, x_dim))
+                        Y_tmp_lf = np.zeros((0, y_dim))
 
+                    if user_init_lf < 0:
+                        n_init_ref = min(4 * x_dim, thr_count_lf + n_ex_lf - 1, 500)
+                        if self.do_parallel:
+                            n_init_ref = int(np.ceil(n_init_ref/self.n_processor)*self.n_processor) # Let's not waste resource
+                        if n_init_ref > n_ex_lf:
+                            n_init_lf = n_init_ref - n_ex_lf
+                        else:
+                            n_init_lf = 0
+                    else:
+                        n_init_lf = user_init_lf
 
-
-            if user_init < 0:
-                n_init_ref = min(4 * x_dim, thr_count + n_ex - 1, 500)
-                if self.do_parallel:
-                    n_init_ref = int(np.ceil(n_init_ref/self.n_processor)*self.n_processor) # Let's not waste resource
-                if n_init_ref > n_ex:
-                    n_init = n_init_ref - n_ex
-                else:
-                    n_init = 0                    
-            else:
-                n_init = user_init
-
-
-            if user_init_lf < 0:
-                n_init_ref = min(4 * x_dim, thr_count_lf + n_ex_lf - 1, 500)
-                if self.do_parallel:
-                    n_init_ref = int(np.ceil(n_init_ref/self.n_processor)*self.n_processor) # Let's not waste resource
-                if n_init_ref > n_ex_lf:
-                    n_init_lf = n_init_ref - n_ex_lf
-                else:
-                    n_init_lf = 0
-            else:
-                n_init_lf = user_init_lf
-
-            n_iter_lf = thr_count_lf - n_init_lf
+                #n_iter_lf = thr_count_lf - n_init_lf
 
             if self.do_mf:
                 if self.mf_case == 'model-model':
@@ -485,19 +486,34 @@ class GpFromModel(object):
 
 
             # check validity of datafile
-            if n_ex > 0:
-                #Y_test, self.id_sim = FEM_batch(X_tmp[0, :][np.newaxis], self.id_sim)
-                # TODO : Fix this
-                print(X_tmp[0, :][np.newaxis].shape)
-                X_test, Y_test ,self.id_sim= FEM_batch(X_tmp[0, :][np.newaxis] ,self.id_sim)
-                if np.sum(abs((Y_test - Y_tmp[0, :][np.newaxis]) / Y_test) > 0.01, axis=1) > 0:
-                    msg = 'Consistency check failed. Your data is not consistent to your model response.'
-                    errlog.exit(msg)
-                if n_init>0:
-                    n_init -= 1
-                else:
-                    n_iter -= 1
 
+
+            if not self.do_mf:
+
+                if n_ex > 0:
+                    #Y_test, self.id_sim = FEM_batch(X_tmp[0, :][np.newaxis], self.id_sim)
+                    # TODO : Fix this
+                    print(X_tmp[0, :][np.newaxis].shape)
+                    X_test, Y_test ,self.id_sim= FEM_batch(X_tmp[0, :][np.newaxis] ,self.id_sim)
+                    if np.sum(abs((Y_test - Y_tmp[0, :][np.newaxis]) / Y_test) > 0.01, axis=1) > 0:
+                        msg = 'Consistency check failed. Your data is not consistent to your model response. If data is different '
+                        errlog.exit(msg)
+                    if n_init>0:
+                        n_init -= 1
+                    else:
+                        n_iter -= 1
+
+            if self.do_mf:
+                if self.hf_is_model:
+                    if n_ex_hf > 0:
+                        X_test, Y_test, self.id_sim = FEM_batch(X_tmp[0, :][np.newaxis], self.id_sim)
+                        if np.sum(abs((Y_test - Y_tmp[0, :][np.newaxis]) / Y_test) > 0.01, axis=1) > 0:
+                            msg = 'Consistency check failed. Your data is not consistent to your model response. If data is different '
+                            errlog.exit(msg)
+                        if n_init > 0:
+                            n_init_hf -= 1
+                        else:
+                            n_iter_hf -= 1
             #
             # generate initial samples
             #

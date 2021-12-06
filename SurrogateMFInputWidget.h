@@ -83,7 +83,8 @@ private:
     QLineEdit *numSamples_LF, *initialDoE_LF;
     QLineEdit *inpFileDir_HF, *inpFileDir_LF, *outFileDir_HF, *outFileDir_LF;
     QComboBox *gpKernel;
-    QCheckBox *theAdvancedCheckBox,*theExistingCheckBox_HF,*theExistingCheckBox_LF, *theDoECheckBox;
+    QCheckBox *theAdvancedCheckBox,*theExistingCheckBox_HF,*theExistingCheckBox_LF;
+    QComboBox *theDoESelection;
     QCheckBox *theLinearCheckBox,*theLogtCheckBox;
     QCheckBox *parallelCheckBox;
 

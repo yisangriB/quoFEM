@@ -92,7 +92,6 @@ SurrogateNoDoEInputWidget::SurrogateNoDoEInputWidget(InputWidgetParameters *para
     theSelectionLayout->addWidget(theCheckButton,0);
     theSelectionLayout->addWidget(theLabel,1);
 
-
     //
     // Create Output LineEdit
     //
@@ -325,6 +324,8 @@ SurrogateNoDoEInputWidget::outputToJSON(QJsonObject &jsonObj){
     if (theCheckButton->isChecked())
     {
         jsonObj["outFile"]=outFileDir->text();
+    } else {
+        jsonObj["outFile"]="NA";
     }
 
     jsonObj["advancedOpt"]=theAdvancedCheckBox->isChecked();
@@ -335,9 +336,14 @@ SurrogateNoDoEInputWidget::outputToJSON(QJsonObject &jsonObj){
         jsonObj["logTransform"]=theLogtCheckBox->isChecked();
         jsonObj["nuggetOpt"]=theNuggetSelection->currentText();
         jsonObj["nuggetString"]=theNuggetVals->text();
+    } else {
+        jsonObj["kernel"]="Radial Basis";
+        jsonObj["linear"]=false;
+        jsonObj["logTransform"]=false;
+        jsonObj["nuggetOpt"]="Optimize";
+        jsonObj["nuggetString"]="NA";
     }
     jsonObj["parallelExecution"]=false;
-
     return result;    
 }
 
