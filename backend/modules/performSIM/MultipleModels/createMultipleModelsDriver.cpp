@@ -41,6 +41,7 @@ int main(int argc, const char **argv) {
   eraseAllSubstring(runType,"\"");
   eraseAllSubstring(osType,"\"");
 
+  std::cerr << "thisProgram: " << thisProgram << '\n';
   std::cerr << "runType: " << runType << '\n';
   std::cerr << "osType: " << osType << '\n';
   

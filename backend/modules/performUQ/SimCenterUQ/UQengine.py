@@ -45,10 +45,18 @@ class UQengine:
 
         print("working directory cleared")
 
-    def run_FEM_batch(self, X, id_sim, rv_name, do_parallel, y_dim, t_init, t_thr, runIdx=0):
+    def set_FEM(self, rv_name, do_parallel, y_dim, t_init, t_thr):
+        self.rv_name = rv_name
+        self.do_parallel = do_parallel
+        self.y_dim = y_dim
+        self.t_init = t_init
+        self.t_thr = t_thr
+        self.total_sim_time = 0
+
+    def run_FEM_batch(self, X, id_sim, runIdx=0):
         if runIdx == -1:
             #dummy run
-            return X, np.zeros((0,y_dim)), id_sim
+            return X, np.zeros((0,self.y_dim)), id_sim
         workflowDriver = self.workflowDriver
         #
         # serial run
@@ -56,15 +64,15 @@ class UQengine:
 
         X = np.atleast_2d(X)
         nsamp = X.shape[0]
-        if not do_parallel:
-            Y = np.zeros((nsamp,y_dim))
+        if not self.do_parallel:
+            Y = np.zeros((nsamp,self.y_dim))
             for ns in range(nsamp):
-                Y_tmp, id_sim_current = run_FEM(X[ns,:],id_sim+ns,rv_name, self.work_dir, workflowDriver, runIdx)
-                if Y_tmp.shape[1] != y_dim:
+                Y_tmp, id_sim_current = run_FEM(X[ns,:],id_sim+ns, self.rv_name, self.work_dir, workflowDriver, runIdx)
+                if Y_tmp.shape[1] != self.y_dim:
                     msg = "model output <results.out> contains {} value(s) while the number of QoIs specified in quoFEM is {}".format(Y_tmp.shape[1],y_dim)
                     self.exit(msg)
                 Y[ns,:] = Y_tmp
-                if time.time() - t_init > t_thr:
+                if time.time() - self.t_init > self.t_thr:
                     X = X[:ns, :]
                     Y = Y[:ns, :]
                     break
@@ -74,10 +82,10 @@ class UQengine:
         # parallel run
         #
 
-        if do_parallel:
+        if self.do_parallel:
             print("Running {} simulations in parallel".format(nsamp))
             tmp = time.time()
-            iterables = ((X[i, :][np.newaxis], id_sim + i, rv_name, self.work_dir, self.workflowDriver, runIdx) for i in range(nsamp))
+            iterables = ((X[i, :][np.newaxis], id_sim + i,  self.rv_name, self.work_dir, self.workflowDriver, runIdx) for i in range(nsamp))
             try:
                 result_objs = list(self.pool.starmap(run_FEM, iterables))
                 print("Simulation time = {} s".format(time.time() - tmp));
@@ -89,14 +97,14 @@ class UQengine:
                     sys.exit()
 
             Nsim = len(list((result_objs)))
-            Y = np.zeros((Nsim, y_dim))
+            Y = np.zeros((Nsim, self.y_dim))
             for val, id in result_objs:
                 if isinstance(val, str):
                     self.exit(val)
                 elif val.shape[0]:
-                    if val.shape[0] != y_dim:
+                    if val.shape[0] != self.y_dim:
                         msg = "model output <results.out> contains {} value(s) while the number of QoIs specified in quoFEM is {}".format(
-                            val.shape[0], y_dim)
+                            val.shape[0], self.y_dim)
                         self.exit(msg)
 
                 if np.isnan(np.sum(val)):
@@ -194,8 +202,9 @@ def run_FEM(X, id_sim, rv_name, work_dir, workflowDriver, runIdx=0):
 
     os.chdir(current_dir_i)
     workflow_run_command = '{}/{}'.format(current_dir_i, workflowDriver)
-    subprocess.check_call(workflow_run_command, shell=True)
-
+    subprocess.check_call(workflow_run_command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    print("RUNNING FEM: working directory {} created".format(id_sim + 1))
+    #subprocess.check_call(workflow_run_command, shell=True, stdout=FNULL, stderr=subprocess.STDOUT)
     #
     # (4) reading results
     #

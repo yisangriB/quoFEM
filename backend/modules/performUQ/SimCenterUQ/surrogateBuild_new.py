@@ -29,7 +29,6 @@ try:
     import numpy as np
     moduleName = "UQengine"
     from UQengine import UQengine
-
     #from utilities import run_FEM_batch, errorLog
     error_tag=False # global variable
 except:
@@ -39,7 +38,6 @@ except:
 
 def main(inputArgs):
     gp = surrogate(inputArgs)
-
 
 class surrogate(UQengine):
 
@@ -152,11 +150,12 @@ class surrogate(UQengine):
         #  Advanced
         #
 
+        self.do_logtransform = surrogateJson["logTransform"]
+        self.kernel = surrogateJson["kernel"]
+        self.do_linear = surrogateJson["linear"]
+        self.nugget_opt = surrogateJson["nuggetOpt"]
+
         if surrogateJson["advancedOpt"]:
-            self.do_logtransform = surrogateJson["logTransform"]
-            self.kernel = surrogateJson["kernel"]
-            self.do_linear = surrogateJson["linear"]
-            self.nugget_opt = surrogateJson["nuggetOpt"]
             try:
                 self.nuggetVal = np.array(json.loads("[{}]".format(surrogateJson["nuggetString"])))
             except json.decoder.JSONDecodeError:
@@ -188,11 +187,12 @@ class surrogate(UQengine):
                         msg = 'Error reading json: the lower bound of a nugget value should be smaller than its upper bound'
                         self.exit(msg)
         else:
+            pass
             # use default
-            self.do_logtransform = False
-            self.kernel = 'Matern 5/2'
-            self.do_linear = False
-            self.nugget_opt = "optimize"
+            # self.do_logtransform = False
+            # self.kernel = 'Matern 5/2'
+            # self.do_linear = False
+            # self.nugget_opt = "optimize"
 
         # Save model information
         if (surrogateJson["method"] == "Sampling and Simulation") or (surrogateJson["method"] == "Import Data File"):
@@ -235,6 +235,7 @@ class surrogate(UQengine):
             self.doeIdx = "HFLF"
             self.modelInfoHF.runIdx = 1
             self.modelInfoLF.runIdx = 2
+            self.cal_interval = 1
         elif not self.modelInfoHF.is_model and self.modelInfoLF.is_model:
             self.doeIdx = "LF"
         elif self.modelInfoHF.is_model and not self.modelInfoLF.is_model:
@@ -276,7 +277,9 @@ class surrogate(UQengine):
             kr = GPy.kern.Matern32(input_dim=x_dim, ARD=True)
         elif kernel == 'Matern 5/2':
             kr = GPy.kern.Matern52(input_dim=x_dim, ARD=True)
-
+        else:
+            msg = 'Error running SimCenterUQ - Kernel name <{}> not supported'.format(kernel)
+            self.self.exit(msg)
         if self.do_linear:
             kr = kr + GPy.kern.Linear(input_dim=x_dim, ARD=True)
 
@@ -328,19 +331,23 @@ class surrogate(UQengine):
                 X_list_h = X_list[X.shape[0]:]
                 return m_tmp.predict(X_list_h)
 
-    def set_XY(self,m_tmp,X_hf,Y_hf,X_lf=0,Y_lf=0):
+    def set_XY(self,m_tmp,X_hf,Y_hf,X_lf=float("nan"),Y_lf=float("nan")):
 
-        if self.do_logtransform and Y_hf.shape[0]>0:
+        if self.do_logtransform:
             if np.min(Y_hf) < 0:
                 msg = 'Error running SimCenterUQ - Response contains negative values. Please uncheck the log-transform option in the UQ tab'
                 self.self.exit(msg)
             Y_hf = np.log(Y_hf)
 
-        if self.do_logtransform and Y_lf.shape[0]>0:
+        if self.do_logtransform:
             if np.min(Y_lf) < 0:
                 msg = 'Error running SimCenterUQ - Response contains negative values. Please uncheck the log-transform option in the UQ tab'
                 self.self.exit(msg)
             Y_lf = np.log(Y_lf)
+            
+        if np.all(np.isnan(X_lf)) and np.all(np.isnan(Y_lf)):
+            X_lf = self.X_lf
+            Y_lf = self.Y_lf
 
         if not self.do_mf:
             m_tmp.set_XY(X_hf, Y_hf)
@@ -369,80 +376,72 @@ class surrogate(UQengine):
                 m_tmp.gpy_model.mixed_noise.Gaussian_noise_1.unfix()
 
             elif nugget_opt_tmp == "Fixed Values":
-                m_tmp.gpy_model.mixed_noise.Gaussian_noise.constrain_fixed(self.nuggetVal[ny])
-                m_tmp.gpy_model.mixed_noise.Gaussian_noise_1.constrain_fixed(self.nuggetVal[ny])
-
+                # m_tmp.gpy_model.mixed_noise.Gaussian_noise.constrain_fixed(self.nuggetVal[ny])
+                # m_tmp.gpy_model.mixed_noise.Gaussian_noise_1.constrain_fixed(self.nuggetVal[ny])
+                msg = 'Currently Nugget Fixed Values option is not supported'
+                self.self.exit(msg)
+                
             elif nugget_opt_tmp == "Fixed Bounds":
-                m_tmp.gpy_model.mixed_noise.Gaussian_noise.constrain_bounded(self.nuggetVal[ny][0],
-                                                                                      self.nuggetVal[ny][1])
-                m_tmp.gpy_model.mixed_noise.Gaussian_noise_1.constrain_bounded(self.nuggetVal[ny][0],
-                                                                                        self.nuggetVal[ny][1])
+                # m_tmp.gpy_model.mixed_noise.Gaussian_noise.constrain_bounded(self.nuggetVal[ny][0],
+                #                                                                       self.nuggetVal[ny][1])
+                # m_tmp.gpy_model.mixed_noise.Gaussian_noise_1.constrain_bounded(self.nuggetVal[ny][0],
+                #                                                                         self.nuggetVal[ny][1])
+                msg = 'Currently Nugget Fixed Bounds option is not supported'
+                self.self.exit(msg)
             elif nugget_opt_tmp == "Zero":
                 m_tmp.gpy_model.mixed_noise.Gaussian_noise.constrain_fixed(0)
                 m_tmp.gpy_model.mixed_noise.Gaussian_noise_1.constrain_fixed(0)
         return m_tmp
 
-    def calibrate(self, m_tmp_list):
+    def calibrate(self):
         warnings.filterwarnings("ignore")
         t_opt = time.time()
-        m_list = list()
+        nugget_opt_tmp = self.nugget_opt
         for ny in range(self.y_dim):
             print("y dimension {}:".format(ny))
-            nopt = 10
-            #
-            # Start with previous optimal
-            #
-            nugget_opt_tmp = self.nugget_opt
-            m_init = m_tmp_list[ny]
-            m_tmp = m_init
-
             if not self.do_mf:
+                nopt = 10
+                m_tmp = copy.deepcopy(self.m_list[ny])
+
+                # Save the previous optimal
+
+                init_length_params={}
+                for parname in m_tmp.parameter_names():
+                    if parname.endswith('lengthscale'):
+                        exec('init_length_params["' + parname.replace('.','_') + '"] = m_tmp.' + parname )
 
                 # if response is constant....
+
                 if np.var(m_tmp.Y) == 0:
                     nugget_opt_tmp = "Zero"
                     for parname in m_tmp.parameter_names():
                         if parname.endswith('variance'):
                             m_tmp[parname].constrain_fixed(0)
 
-                #
                 # optimization #1 with previous optimal
-                #
 
                 m_tmp = self.setNugget(m_tmp, nugget_opt_tmp, ny) # set nugget
                 m_tmp.optimize(clear_after_finish=True)           # optimize parameters
                 max_log_likli = m_tmp.log_likelihood()
-                t_unfix = time.time()
 
                 id_opt = 1
                 print('{} among {} Log-Likelihood: {}'.format(1, nopt, m_tmp.log_likelihood()))
+                m_opt = m_tmp.copy() #candidate
 
-                # if time.time() - t_unfix > self.t_sim_each_hf:
-                #     nopt = 1
-
-                m = m_tmp.copy()
-
-                #
                 # optimization #2 with bounds
-                #
 
                 for parname in m_tmp.parameter_names():
                     if parname.endswith('lengthscale'):
                         exec('m_tmp.' + parname + '=self.ll')
-
-                m_tmp = self.setNugget(m_tmp, nugget_opt_tmp, ny)
                 m_tmp.optimize(clear_after_finish=True)
 
-                t_unfix = time.time()
+                #check if it is better
                 if m_tmp.log_likelihood() > max_log_likli:
                     max_log_likli = m_tmp.log_likelihood()
-                    m = m_tmp.copy()
+                    m_opt = m_tmp.copy()
+                    id_opt = 2
 
-                id_opt = 2
                 print('{} among {} Log-Likelihood: {}'.format(2, nopt, m_tmp.log_likelihood()))
-
-                # if time.time() - t_unfix > self.t_sim_each_hf:
-                #     nopt = 2
 
                 #
                 # optimization #3-nopt with random inits
@@ -451,14 +450,13 @@ class surrogate(UQengine):
                 for no in range(nopt - 2):
                     for parname in m_tmp.parameter_names():
                         if parname.endswith('lengthscale'):
-                            if math.isnan(m.log_likelihood()):
-                                exec('m_tmp.' + parname + '=np.random.exponential(1, (1, self.x_dim)) * m_init.' + parname)
+                            if math.isnan(m_opt.log_likelihood()):
+                                exec('m_tmp.' + parname + '=np.random.exponential(1, (1, self.x_dim)) * init_length_params["' + parname.replace('_','.') +'"]')
                             else:
-                                exec('m_tmp.' + parname + '=np.random.exponential(1, (1, self.x_dim)) * m.' + parname)
+                                exec('m_tmp.' + parname + '=np.random.exponential(1, (1, self.x_dim)) * m_opt.' + parname)
 
-                    t_fix = time.time()
                     try:
-                        m_tmp = self.setNugget(m_tmp, nugget_opt_tmp, ny)
+                        #m_tmp = self.setNugget(m_tmp, nugget_opt_tmp, ny)
                         m_tmp.optimize()
                     except Exception as ex:
                         print("OS error: {0}".format(ex))
@@ -466,39 +464,42 @@ class surrogate(UQengine):
 
                     if m_tmp.log_likelihood() > max_log_likli:
                         max_log_likli = m_tmp.log_likelihood()
-                        m = m_tmp.copy()
+                        m_opt = m_tmp.copy()
                         id_opt = no
-
-                    if time.time() - t_unfix > self.t_sim_each_hf:
-                        nopt = 2 + no
-                        break
 
                 if math.isinf(-max_log_likli) or math.isnan(-max_log_likli):
                     if np.var(m_tmp.Y) != 0:
                         msg = "Error GP optimization failed for QoI #{}".format(ny+1)
                         self.self.exit(msg)
 
-                m_list = m_list + [m]
-                print(m)
 
+
+                print(m_opt)
+                self.m_list[ny] = m_opt# overwirte
                 self.calib_time = (time.time() - t_opt) * round(10 / nopt)
                 print('     Calibration time: {:.2f} s, id_opt={}'.format(self.calib_time, id_opt))
 
             else:
-                m = self.setNugget( m_tmp, nugget_opt_tmp, ny)
-                m.optimize()
-                m_list = m_list + [m]
+                self.m_list[ny] = self.setNugget( self.m_list[ny], nugget_opt_tmp, ny)
+                self.m_list[ny].optimize()
                 self.calib_time = (time.time() - t_opt)
                 print('     Calibration time: {:.2f} s'.format(self.calib_time))
 
+        Y_pred, Y_pred_var, e2 = self.get_cross_validation_err()
 
-        return m_list
+        return  Y_pred, Y_pred_var, e2
 
 
     def train_surrogate(self, t_init):
         # FEM index
         self.id_sim_hf = 0
         self.id_sim_lf = 0
+        self.time_hf_tot = 0
+        self.time_lf_tot = 0
+        self.time_hf_avg = float("Inf")
+        self.time_lf_avg = float("Inf")
+        self.time_ratio = 1
+
 
         x_dim = self.x_dim
         y_dim = self.y_dim
@@ -510,32 +511,36 @@ class surrogate(UQengine):
         model_hf = self.modelInfoHF
         model_lf = self.modelInfoLF
 
-        def FEM_batch_hf(X, id_sim):
-            if model_hf.is_model:
-                return self.run_FEM_batch(X, id_sim, self.rv_name, self.do_parallel, y_dim, t_init, model_hf.thr_t, runIdx=model_hf.runIdx)
-            else:
-                return np.zeros((0, self.x_dim)), np.zeros((0, self.y_dim)), id_sim
+        self.set_FEM(self.rv_name, self.do_parallel, self.y_dim, t_init, model_hf.thr_t)
 
-            # return self.run_model(X, id_sim, self.rv_name, self.do_parallel, self.y_dim, self.os_type, self.work_dir,
-            #                      self.pool, t_init, model_hf.thr_t, runIdx=1)
+        def FEM_batch_hf(X,id_sim):
+            tmp =time.time()
+            if model_hf.is_model:
+                res = self.run_FEM_batch(X, id_sim, runIdx=model_hf.runIdx)
+            else:
+                res =  np.zeros((0, self.x_dim)), np.zeros((0, self.y_dim)), id_sim
+            self.time_hf_tot += time.time() - tmp
+            self.time_hf_avg = np.float64(self.time_hf_tot)/res[2] # so that it gives inf when divided by zero
+            self.time_ratio = self.time_hf_avg/self.time_lf_avg
+            return res
+
+        def FEM_batch_lf(X,id_sim):
+            tmp =time.time()
+            if model_hf.is_model:
+                res = self.run_FEM_batch(X, id_sim, runIdx=model_lf.runIdx)
+            else:
+                res =  np.zeros((0, self.x_dim)), np.zeros((0, self.y_dim)), id_sim
+            self.time_lf_tot += time.time() - tmp
+            self.time_lf_avg = np.float64(self.time_lf_tot)/res[2] # so that it gives inf when divided by zero
+            self.time_ratio = self.time_hf_avg/self.time_lf_avg
+            return res
 
         tmp = time.time()
 
         X_hf_tmp = model_hf.sampling(max([model_hf.n_init - model_hf.n_existing,0]))
         X_hf_tmp, Y_hf_tmp, self.id_sim_hf = FEM_batch_hf(X_hf_tmp, self.id_sim_hf)
-        if model_hf.is_model:
-            self.t_sim_each_hf = (time.time()-tmp)/max([model_hf.n_init - model_hf.n_existing,0])
-        else:
-            self.t_sim_each_hf = float("Inf")
 
         self.X_hf, self.Y_hf = np.vstack([model_hf.X_existing, X_hf_tmp]), np.vstack([model_hf.Y_existing, Y_hf_tmp])
-
-
-        def FEM_batch_lf(X, id_sim):
-            if model_lf.is_model:
-                return self.run_FEM_batch(X, id_sim, self.rv_name, self.do_parallel, y_dim, t_init, model_lf.thr_t, runIdx=model_lf.runIdx)
-            else:
-                return np.zeros((0, self.x_dim)), np.zeros((0, self.y_dim)), id_sim
 
         X_lf_tmp = model_lf.sampling(max([model_lf.n_init - model_lf.n_existing, 0]))
 
@@ -543,25 +548,16 @@ class surrogate(UQengine):
         # Giselle Fernández-Godino, M., Park, C., Kim, N. H., & Haftka, R. T. (2019). Issues in deciding whether to use multifidelity surrogates. AIAA Journal, 57(5), 2039-2054.
         new_x_lf_tmp = np.zeros((0,self.x_dim))
         X_tmp =X_lf_tmp
+
         for x_hf in X_hf_tmp:
-            if X_tmp.shape[1] > 0:
+            if X_tmp.shape[0] > 0:
                 id = closest_node(x_hf, X_tmp, self.ll)
-                new_x_lf_tmp = np.vstack([new_x_lf_tmp, X_tmp[id]])
+                new_x_lf_tmp = np.vstack([new_x_lf_tmp, x_hf])
                 X_tmp = np.delete(X_tmp, id, axis=0)
-            else:
-                break
+        new_x_lf_tmp = np.vstack([new_x_lf_tmp,X_tmp])
 
-            new_x_lf_tmp = np.vstack([new_x_lf_tmp,X_tmp])
 
-        for x_lf in X_lf_tmp:
-            if X_tmp.shape[1] > 0:
-                id = closest_node(x_lf, X_tmp, self.ll)
-                new_x_lf_tmp += [X_tmp[id]]
-                X_tmp = np.delete(X_tmp, id, axis=0)
-            else:
-                new_x_lf_tmp += [x_lf]
-
-        new_x_lf_tmp, new_y_lf_tmp, self.id_sim_lf = FEM_batch_lf(new_x_lf_tmp, self.id_sim_lf)
+        new_x_lf_tmp, new_y_lf_tmp, self.id_sim_lf =FEM_batch_lf(new_x_lf_tmp, self.id_sim_lf)
 
         self.X_lf, self.Y_lf = np.vstack([model_lf.X_existing, new_x_lf_tmp]), np.vstack([model_lf.Y_existing, new_y_lf_tmp])
 
@@ -594,14 +590,34 @@ class surrogate(UQengine):
         nq = self.nq
         n_new = 0
         while exit_flag == False:
-            i = self.id_sim_hf + n_new
-            [x_new, y_idx, self.Y_cv, self.Y_cv_var] = self.run_design_of_experiments(nc1, nq, self.doeIdx)
+            # Initial calibration
+
+            # Calibrate self.m_list
+            self.Y_cv, self.Y_cv_var, e2 = self.calibrate()
+
+            if self.id_sim_hf < model_hf.thr_count:
+                [x_new_hf, y_idx_hf, score_hf] = self.run_design_of_experiments(nc1, nq, e2, "HFHF")
+            else:
+                score_hf = 0
+
+            if self.id_sim_lf < model_lf.thr_count:
+                [x_new_lf, y_idx_lf, score_lf] = self.run_design_of_experiments(nc1, nq, e2, "LF")
+            else:
+                score_lf = 0 #score : reduced amount of variance
+
+            if self.doeIdx == "HFLF":
+                fideilityIdx = np.argmax([score_hf/self.time_hf_avg, score_lf/self.time_lf_avg])
+                if fideilityIdx==0:
+                    tmp_doeIdx = "HF"
+                else:
+                    tmp_doeIdx = "LF"
+            else:
+                tmp_doeIdx = self.doeIdx
 
             if self.do_logtransform:
                 Y_exact = np.log(self.Y_hf)
             else:
                 Y_exact = (self.Y_hf)
-
 
             NRMSE_val = self.normalized_mean_sq_error(self.Y_cv, Y_exact)
             self.NRMSE_hist = np.vstack((self.NRMSE_hist, np.array(NRMSE_val)))
@@ -627,23 +643,28 @@ class surrogate(UQengine):
                 doe_off = True
                 break
 
-            n_new = x_new.shape[0]
 
-            if self.doeIdx=="HF":
-                if self.doeIdx == "HF" and n_new + self.id_sim_hf > model_hf.thr_count:
+
+            if tmp_doeIdx.startswith("HF"):
+                n_new = x_new_hf.shape[0]
+                if n_new + self.id_sim_hf > model_hf.thr_count:
                     n_new = model_hf.thr_count - self.id_sim_hf
-                    x_new = x_new[0:n_new, :]
-                x_hf_new, y_hf_new, self.id_sim_hf = FEM_batch_hf(x_new, self.id_sim_hf)
+                    x_new_hf = x_new_hf[0:n_new, :]
+                x_hf_new, y_hf_new, self.id_sim_hf = FEM_batch_hf(x_new_hf, self.id_sim_hf)
                 self.X_hf = np.vstack([self.X_hf, x_hf_new])
                 self.Y_hf = np.vstack([self.Y_hf, y_hf_new])
-
-            if self.doeIdx=="LF":
+                i = self.id_sim_hf + n_new
+                
+            if tmp_doeIdx.startswith("LF"):
+                n_new = x_new_lf.shape[0]
                 if n_new + self.id_sim_lf > model_lf.thr_count:
                     n_new = model_lf.thr_count - self.id_sim_lf
-                    x_new = x_new[0:n_new, :]
-                x_lf_new, y_lf_new, self.id_sim_lf = FEM_batch_lf(x_new, self.id_sim_lf)
+                    x_new_lf = x_new_lf[0:n_new, :]
+                x_lf_new, y_lf_new, self.id_sim_lf = FEM_batch_lf(x_new_lf, self.id_sim_lf)
                 self.X_lf = np.vstack([self.X_lf, x_lf_new])
                 self.Y_lf = np.vstack([self.Y_lf, y_lf_new])
+                i = self.id_sim_lf + n_new
+                self.Y_cv = Y_cv_hf
 
 
             #print(">> {:.2f} s".format(time.time() - t_init))
@@ -664,11 +685,12 @@ class surrogate(UQengine):
 
         import matplotlib.pyplot as plt
         plt.plot(self.Y_cv[:,0],Y_exact[:,0],'x');
-        plt.plot(Y_exact[:,0],Y_exact[:,0],'-'); plt.show()
+        plt.plot(Y_exact[:,0],Y_exact[:,0],'-');
         # plt.plot(self.Y_cv[:, 0],Y_exact[:,0],'x')
         # plt.plot(Y_exact[:, 0],Y_exact[:, 0],'x')
-        # plt.xlabel("CV")
-        # plt.ylabel("Exact")
+        plt.xlabel("CV")
+        plt.ylabel("Exact")
+        plt.show()
         # plt.show()
         # plt.plot(self.Y_cv[:, 1],Y_exact[:,1],'x')
         # plt.plot(Y_exact[:, 1],Y_exact[:, 1],'x')
@@ -978,28 +1000,41 @@ class surrogate(UQengine):
         print("Results Saved")
         return 0
 
-    def run_design_of_experiments(self, nc1, nq, doeIdx="hf"):
+    def run_design_of_experiments(self, nc1, nq, e2, doeIdx="HF"):
 
+        if doeIdx == "LF":
+            lfset = set([tuple(x) for x in self.X_lf.tolist()])
+            hfset = set([tuple(x) for x in self.X_hf.tolist()])
+            hfsamples = hfset-lfset
+            if len(hfsamples)==0:
+                lf_additional_candi = np.zeros((0,self.x_dim))
+            else:
+                lf_additional_candi = np.array([np.array(x) for x in hfsamples])
+
+            def sampling(N):
+                return model_lf.sampling(N)
+
+        else:
+            def sampling(N):
+                return model_hf.sampling(N)
         # doeIdx = 0
         # doeIdx = 1 #HF
         # doeIdx = 2 #LF
         # doeIdx = 3 #HF and LF
 
+        model_hf = self.modelInfoHF
+        model_lf = self.modelInfoLF
+
         X_hf = self.X_hf
         Y_hf = self.Y_hf
         X_lf = self.X_lf
         Y_lf = self.Y_lf
-        model_hf = self.modelInfoHF
-        model_lf = self.modelInfoLF
         ll = self.ll # Todo which ll?
-
-        # First calibration
-        self.m_list = self.calibrate(self.m_list)
-        Y_pred, Y_pred_var, e2 = self.get_cross_validation_err(self.m_list)
 
         y_var = np.var(Y_hf, axis=0)  # normalization
         y_idx = np.argmax(np.sum(e2 / y_var, axis=0))
         if np.max(np.sum(e2 / y_var, axis=0)) == 0:
+            # if this Y is constant
             self.doe_method = "none"
             self.doe_stop = True
 
@@ -1011,7 +1046,8 @@ class surrogate(UQengine):
 
         if self.doe_method == "none":
 
-            update_point = model_hf.sampling(self.cal_interval)
+            update_point = sampling(self.cal_interval)
+            score=0
 
         elif self.doe_method == "pareto":
 
@@ -1019,9 +1055,12 @@ class surrogate(UQengine):
             # Initial candidates
             #
 
-            xc1 = model_hf.sampling(nc1) # same for hf/lf
-            xq = model_hf.sampling(nq) # same for hf/lf
+            xc1 = sampling(nc1) # same for hf/lf
+            xq = sampling(nq) # same for hf/lf
 
+            if doeIdx.startswith("LF"):
+                xc1 = np.vstack([xc1,lf_additional_candi])
+                nc1 = xc1.shape[0]
             #
             # MMSE prediction
             #
@@ -1058,6 +1097,13 @@ class surrogate(UQengine):
             num_1rank = np.sum(rankid==1)
             idx_1rank = list((np.argwhere(rankid==1)).flatten())
 
+            if doeIdx.startswith("HF"):
+                X_stack = X_hf
+                Y_stack = Y_hf[:, y_idx][np.newaxis].T
+            elif doeIdx.startswith("LF"):
+                X_stack = X_lf
+                Y_stack = Y_lf[:, y_idx][np.newaxis].T
+
             if num_1rank < self.cal_interval:
                 # When number of pareto is smaller than cal_interval
                 prob = np.ones((nc1,))
@@ -1066,8 +1112,6 @@ class surrogate(UQengine):
                 idx_pareto = idx_1rank + list(np.random.choice(nc1, self.cal_interval-num_1rank, p=prob))
             else:
                 idx_pareto_candi = idx_1rank.copy()
-                X_stack = X_hf
-                Y_stack = Y_hf[:,y_idx][np.newaxis].T
                 m_tmp = copy.deepcopy(m_stack)
 
                 # get MMSEw
@@ -1082,7 +1126,12 @@ class surrogate(UQengine):
                 for i in range(self.cal_interval-1):
                     X_stack = np.vstack([X_stack, xc1[best_global, :][np.newaxis]])
                     Y_stack = np.vstack([Y_stack, np.array([[0]]) ]) # any variables
-                    m_stack.set_XY(X=X_stack, Y=Y_stack)
+
+                    if doeIdx.startswith("HF"):
+                        self.set_XY(m_stack, X_stack, Y_stack)
+                    elif doeIdx.startswith("LF"):  # any variables
+                        self.set_XY(m_tmp, self.X_hf, self.Y_hf, X_stack, Y_stack)
+
                     dummy, Yq_var = self.predict(m_stack,xc1[idx_pareto_candi, :])
                     cri1 = Yq_var * VOI[idx_pareto_candi]
                     cri1 = (cri1 - np.min(cri1)) / (np.max(cri1) - np.min(cri1))
@@ -1095,66 +1144,154 @@ class surrogate(UQengine):
                 idx_pareto = idx_pareto_new
 
             update_point = xc1[idx_pareto, :]
+            score=0
 
-        elif self.doe_method == "imsew":
+        elif self.doe_method == "imse":
             update_point = np.zeros((self.cal_interval,self.x_dim))
             update_score = np.zeros((self.cal_interval,1))
-            X_stack = X_hf
-            Y_stack = Y_hf[:,y_idx][np.newaxis].T
+
+            if doeIdx.startswith("HF"):
+                X_stack = X_hf
+                Y_stack = Y_hf[:, y_idx][np.newaxis].T
+            elif doeIdx.startswith("LF"):
+                X_stack = X_lf
+                Y_stack = Y_lf[:, y_idx][np.newaxis].T
 
             for ni in range(self.cal_interval):
                 #
                 # Initial candidates
                 #
-                xc1 = model_hf.sampling(nc1) # same for hf/lf
-                xq = model_hf.sampling(nq) # same for hf/lf
+                xc1 = sampling(nc1) # same for hf/lf
+                if doeIdx.startswith("LF"):
+                    xc1 = np.vstack([xc1, lf_additional_candi])
+                    nc1 = xc1.shape[0]
 
-                phiq = np.zeros((nq, self.y_dim))
-                for i in range(nq):
-                    phiq[i,:] = e2[closest_node(xq[i, :], X_hf, ll)]
-                phiqr = pow(phiq[:, y_idx], r)
+                xq = sampling(nq) # same for hf/lf
+
+
+                dummy, Yq_var = self.predict(m_stack, xq)
+                if ni==0:
+                    IMSEbase = 1 / xq.shape[0] * sum(Yq_var.flatten())
 
                 tmp = time.time()
-                # if self.do_parallel:
-                #     iterables = ((copy.deepcopy(m_stack), xc1[i, :][np.newaxis], xq, phiqr, i, doeIdx) for i in range(nc1))
-                #     result_objs = list(self.pool.starmap(imse, iterables))
-                #     IMSEc1 = np.zeros(nc1)
-                #     for IMSE_val, idx in result_objs:
-                #         IMSEc1[idx] = IMSE_val
-                #     print("IMSE: finding the next DOE {} - parallel .. time = {}".format(ni, time.time() - tmp))  # 7s # 3-4s
-                # else:
-                #phiqr = pow(phiq[:, y_idx], r)
-                IMSEc1 = np.zeros(nc1)
-                for i in range(nc1):
-                    IMSEc1[i], dummy = self.imse(m_stack.copy(), xc1[i, :][np.newaxis], xq, phiqr, i, doeIdx)
-                print("IMSE: finding the next DOE {} - serial .. time = {}".format(ni, time.time() - tmp))  # 4s
+                if self.do_parallel:
+                    iterables = ((copy.deepcopy(m_stack), xc1[i, :][np.newaxis], xq, np.ones((nq, self.y_dim)), i, doeIdx) for i in range(nc1))
+                    result_objs = list(self.pool.starmap(imse, iterables))
+                    IMSEc1 = np.zeros(nc1)
+                    for IMSE_val, idx in result_objs:
+                        IMSEc1[idx] = IMSE_val
+                    print("IMSE: finding the next DOE {} - parallel .. time = {:.2f}".format(ni, time.time() - tmp))  # 7s # 3-4s
+                else:
+                    pass
+                # phiqr = pow(phiq[:, y_idx], r)
+                # 
+                # IMSEc1 = np.zeros(nc1)
+                # for i in range(nc1):
+                #     #IMSEc1[i], dummy = self.imse( copy.deepcopy(m_stack), xc1[i, :][np.newaxis], xq, phiqr, i, doeIdx)
+                #     IMSEc1[i], dummy = imse(copy.deepcopy(m_stack), xc1[i, :][np.newaxis], xq, phiqr, i, doeIdx)
+                # print("IMSE: finding the next DOE {} - serial .. time = {}".format(ni, time.time() - tmp))  # 4s
 
                 new_idx = np.argmin(IMSEc1, axis=0)
                 x_point = xc1[new_idx, :][np.newaxis]
 
                 X_stack = np.vstack([X_stack, x_point])
                 Y_stack = np.vstack([Y_stack, np.zeros((1, self.y_dim))])  # any variables
-                m_stack.set_XY(X=X_stack, Y=Y_stack)
                 update_point[ni, :] = x_point
 
-        elif self.doe_method == "random":
-            pass
-            #update_point = model_hf.sampling(self.cal_interval)
+                if doeIdx.startswith("HF"):
+                    self.set_XY(m_stack, X_stack, Y_stack)
+                elif doeIdx.startswith("LF"):  # any variables
+                    self.set_XY(m_stack, self.X_hf, self.Y_hf, X_stack, Y_stack)
+
+            score=IMSEbase-np.min(IMSEc1, axis=0)
+
+        elif self.doe_method == "imsew":
+            update_point = np.zeros((self.cal_interval,self.x_dim))
+            update_score = np.zeros((self.cal_interval,1))
+
+
+            if doeIdx.startswith("HF"):
+                X_stack = X_hf
+                Y_stack = Y_hf[:, y_idx][np.newaxis].T
+            elif doeIdx.startswith("LF"):
+                X_stack = X_lf
+                Y_stack = Y_lf[:, y_idx][np.newaxis].T
+
+            for ni in range(self.cal_interval):
+                #
+                # Initial candidates
+                #
+                xc1 = sampling(nc1) # same for hf/lf
+                if doeIdx.startswith("LF"):
+                    xc1 = np.vstack([xc1, lf_additional_candi])
+                    nc1 = xc1.shape[0]
+
+                xq = sampling(nq) # same for hf/lf
+
+                phiq = np.zeros((nq, self.y_dim))
+                for i in range(nq):
+                    phiq[i,:] = e2[closest_node(xq[i, :], X_hf, ll)]
+                phiqr = pow(phiq[:, y_idx], r)
+
+                dummy, Yq_var = self.predict(m_stack, xq)
+                if ni==0:
+                    IMSEbase = 1 / xq.shape[0] * sum(phiqr.flatten() * Yq_var.flatten())
+
+                tmp = time.time()
+                if self.do_parallel:
+                    iterables = ((copy.deepcopy(m_stack), xc1[i, :][np.newaxis], xq, phiqr, i, doeIdx) for i in range(nc1))
+                    result_objs = list(self.pool.starmap(imse, iterables))
+                    IMSEc1 = np.zeros(nc1)
+                    for IMSE_val, idx in result_objs:
+                        IMSEc1[idx] = IMSE_val
+                    print("IMSE: finding the next DOE {} - parallel .. time = {:.2f}".format(ni, time.time() - tmp))  # 7s # 3-4s
+                else:
+                    pass
+                # phiqr = pow(phiq[:, y_idx], r)
+                # 
+                # IMSEc1 = np.zeros(nc1)
+                # for i in range(nc1):
+                #     #IMSEc1[i], dummy = self.imse( copy.deepcopy(m_stack), xc1[i, :][np.newaxis], xq, phiqr, i, doeIdx)
+                #     IMSEc1[i], dummy = imse(copy.deepcopy(m_stack), xc1[i, :][np.newaxis], xq, phiqr, i, doeIdx)
+                # print("IMSE: finding the next DOE {} - serial .. time = {}".format(ni, time.time() - tmp))  # 4s
+
+                new_idx = np.argmin(IMSEc1, axis=0)
+                x_point = xc1[new_idx, :][np.newaxis]
+
+                X_stack = np.vstack([X_stack, x_point])
+                Y_stack = np.vstack([Y_stack, np.zeros((1, self.y_dim))])  # any variables
+                update_point[ni, :] = x_point
+
+                if doeIdx.startswith("HF"):
+                    self.set_XY(m_stack, X_stack, Y_stack)
+                elif doeIdx.startswith("LF"):  # any variables
+                    self.set_XY(m_stack, self.X_hf, self.Y_hf, X_stack, Y_stack)
+
+            score=IMSEbase-np.min(IMSEc1, axis=0)
+
 
         elif self.doe_method == "mmsew":
-
-            xc1 = model_hf.sampling(nc1)  # same for hf/lf
-            phic = np.zeros((nc1, self.y_dim))
-            for i in range(nc1):
-                phic[i, :] = e2[closest_node(xc1[i, :], X_hf, ll)]
-            phicr = pow(phic[:, y_idx], r)
-
-            X_stack = X_hf
-            Y_stack = Y_hf[:, y_idx][np.newaxis].T
+            if doeIdx.startswith("HF"):
+                X_stack = X_hf
+                Y_stack = Y_hf[:, y_idx][np.newaxis].T
+            elif doeIdx.startswith("LF"):
+                X_stack = X_lf
+                Y_stack = Y_lf[:, y_idx][np.newaxis].T
 
             update_point = np.zeros((self.cal_interval,self.x_dim))
 
             for ni in range(self.cal_interval):
+
+                xc1 = sampling(nc1)  # same for hf/lf
+                if doeIdx.startswith("LF"):
+                    xc1 = np.vstack([xc1, lf_additional_candi])
+                    nc1 = xc1.shape[0]
+
+                phic = np.zeros((nc1, self.y_dim))
+                for i in range(nc1):
+                    phic[i, :] = e2[closest_node(xc1[i, :], X_hf, ll)]
+                phicr = pow(phic[:, y_idx], r)
+
                 yc1_pred, yc1_var = self.predict(m_stack,xc1)  # use only variance
                 MMSEc1 = yc1_var.flatten() * phicr.flatten()
                 new_idx = np.argmax(MMSEc1, axis=0)
@@ -1162,19 +1299,33 @@ class surrogate(UQengine):
 
                 X_stack = np.vstack([X_stack, x_point])
                 Y_stack = np.vstack([Y_stack,  np.zeros((1, Y_hf.shape[1]))])  # any variables
-                m_stack.set_XY(X=X_stack, Y=Y_stack)
+                #m_stack.set_XY(X=X_stack, Y=Y_stack)
+                if doeIdx.startswith("HF"):
+                    self.set_XY(m_stack, X_stack, Y_stack)
+                elif doeIdx.startswith("LF"):  # any variables
+                    self.set_XY(m_tmp, self.X_hf, self.Y_hf, X_stack, Y_stack)
                 update_point[ni, :] = x_point
 
+            score = np.max(MMSEc1, axis=0)
+            
         elif self.doe_method == "mmse":
 
-            xc1 = model_hf.sampling(nc1)  # same for hf/lf
-
-            X_stack = X_hf
-            Y_stack = Y_hf[:, y_idx][np.newaxis].T
+            if doeIdx.startswith("HF"):
+                X_stack = X_hf
+                Y_stack = Y_hf[:, y_idx][np.newaxis].T
+            elif doeIdx.startswith("LF"):
+                X_stack = X_lf
+                Y_stack = Y_lf[:, y_idx][np.newaxis].T
 
             update_point = np.zeros((self.cal_interval,self.x_dim))
 
             for ni in range(self.cal_interval):
+
+                xc1 = sampling(nc1)  # same for hf/lf
+                if doeIdx.startswith("LF"):
+                    xc1 = np.vstack([xc1, lf_additional_candi])
+                    nc1 = xc1.shape[0]
+
                 yc1_pred, yc1_var = self.predict(m_stack,xc1)  # use only variance
                 MMSEc1 = yc1_var.flatten()
                 new_idx = np.argmax(MMSEc1, axis=0)
@@ -1182,16 +1333,19 @@ class surrogate(UQengine):
 
                 X_stack = np.vstack([X_stack, x_point])
                 Y_stack = np.vstack([Y_stack,  np.zeros((1, Y_hf.shape[1]))])  # any variables
-                m_stack.set_XY(X=X_stack, Y=Y_stack)
+                #m_stack.set_XY(X=X_stack, Y=Y_stack)
+                if doeIdx.startswith("HF"):
+                    self.set_XY(m_stack, X_stack, Y_stack)
+                elif doeIdx.startswith("LF"):  # any variables
+                    self.set_XY(m_stack, self.X_hf, self.Y_hf, X_stack, Y_stack)
                 update_point[ni, :] = x_point
 
+            score = np.max(MMSEc1, axis=0)
         else:
             msg = 'Error running SimCenterUQ: cannot identify the doe method <' + self.doe_method + '>'
             self.exit(msg)
 
-
-        return update_point, y_idx, Y_pred, Y_pred_var
-
+        return update_point, y_idx, score
 
     def normalized_mean_sq_error(self, yp, ye):
         n = yp.shape[0]
@@ -1201,7 +1355,7 @@ class surrogate(UQengine):
         NRMSE[np.argwhere((data_bound ==0))]=0
         return NRMSE
 
-    def get_cross_validation_err(self,m_list):
+    def get_cross_validation_err(self):
 
         X_hf = self.X_hf
         Y_hf = self.Y_hf
@@ -1213,11 +1367,10 @@ class surrogate(UQengine):
         Y_pred = np.zeros(Y_hf.shape)
         Y_pred_var = np.zeros(Y_hf.shape)
         for ny in range(Y_hf.shape[1]):
-            m_tmp = copy.deepcopy( m_list[ny])
+            m_tmp = copy.deepcopy( self.m_list[ny])
             for ns in range(X_hf.shape[0]):
                 X_tmp = np.delete(X_hf, ns, axis=0)
                 Y_tmp = np.delete(Y_hf, ns, axis=0)
-                #m_tmp.set_XY(X=X_tmp, Y=Y_tmp[:, ny][np.newaxis].transpose())
                 m_tmp = self.set_XY(m_tmp, X_tmp,Y_tmp[:, ny][np.newaxis].transpose(), X_lf, Y_lf[:, ny][np.newaxis].transpose())
                 x_loo = X_hf[ns, :][np.newaxis]
                 Y_pred_tmp, Y_err_tmp = self.predict(m_tmp,x_loo)
@@ -1235,34 +1388,48 @@ class surrogate(UQengine):
 
         return Y_pred, Y_pred_var, e2
 
-    def imse(self, m_tmp, xcandi, xq, phiqr, i, doeIdx="HF"):
-        if doeIdx == "HF":
-            X = m_tmp.X
-            Y = m_tmp.Y
-            X_tmp = np.vstack([X, xcandi])
-            Y_tmp = np.vstack([Y, np.zeros((1, Y.shape[1]))])   # any variables
-            self.set_XY(m_tmp, X_tmp, Y_tmp)
-            dummy, Yq_var = self.predict(m_tmp,xq)
-            IMSEc1 = 1 / xq.shape[0] * sum(phiqr.flatten() * Yq_var.flatten())
+def imse(m_tmp, xcandi, xq, phiqr, i, doeIdx="HF"):
+    if doeIdx == "HF":
+        X = m_tmp.X
+        Y = m_tmp.Y
+        X_tmp = np.vstack([X, xcandi])
+        Y_tmp = np.vstack([Y, np.zeros((1, Y.shape[1]))])   # any variables
+        #self.set_XY(m_tmp, X_tmp, Y_tmp)
+        m_tmp.set_XY(X_tmp, Y_tmp)
+    elif doeIdx == "HFHF":
+        idxHF = np.argwhere(m_tmp.gpy_model.X[:, -1] == 0).T[0]
+        idxLF = np.argwhere(m_tmp.gpy_model.X[:, -1] == 1).T[0]
+        X_hf = m_tmp.gpy_model.X[idxHF, :-1]
+        Y_hf = m_tmp.gpy_model.Y[idxHF, :]
+        X_lf = m_tmp.gpy_model.X[idxLF, :-1]
+        Y_lf = m_tmp.gpy_model.Y[idxLF, :]
+        X_tmp = np.vstack([X_hf, xcandi])
+        Y_tmp = np.vstack([Y_hf, np.zeros((1, Y_hf.shape[1]))])  # any variables
+        #self.set_XY(m_tmp, X_tmp, Y_tmp, X_lf, Y_lf)
+        X_list_tmp, Y_list_tmp = emf.convert_lists_to_array.convert_xy_lists_to_arrays([X_tmp, X_lf], [Y_tmp, Y_lf])
+        m_tmp.set_data(X=X_list_tmp, Y=Y_list_tmp)
 
-        elif doeIdx == "LF":
-            idxHF = np.argwhere(m_tmp.gpy_model.X[:,-1]==0)
-            idxLF = np.argwhere(m_tmp.gpy_model.X[:,-1]==1)
-            X_hf = m_tmp.gpy_model.X[idxHF,:]
-            Y_hf = m_tmp.gpy_model.Y[idxHF, :]
-            X_lf = m_tmp.gpy_model.X[idxLF, :]
-            Y_lf = m_tmp.gpy_model.Y[idxLF, :]
-            X_tmp = np.vstack([X_lf, xcandi])
-            Y_tmp = np.vstack([X_lf, np.zeros((1, Y_lf.shape[1]))])      # any variables
-            self.set_XY(m_tmp, X_hf, Y_hf, X_tmp, Y_tmp)
-            dummy, Yq_var = self.predict(m_tmp,xq)
-            IMSEc1 = 1 / xq.shape[0] * sum(phiqr.flatten() * Yq_var.flatten())
-            # Todo can I remove if statement?
+    elif doeIdx.startswith("LF"):
+        idxHF = np.argwhere(m_tmp.gpy_model.X[:,-1]==0).T[0]
+        idxLF = np.argwhere(m_tmp.gpy_model.X[:,-1]==1).T[0]
+        X_hf = m_tmp.gpy_model.X[idxHF, :-1]
+        Y_hf = m_tmp.gpy_model.Y[idxHF, :]
+        X_lf = m_tmp.gpy_model.X[idxLF, :-1]
+        Y_lf = m_tmp.gpy_model.Y[idxLF, :]
+        X_tmp = np.vstack([X_lf, xcandi])
+        Y_tmp = np.vstack([Y_lf, np.zeros((1, Y_lf.shape[1]))])      # any variables
+        #self.set_XY(m_tmp, X_hf, Y_hf, X_tmp, Y_tmp)
+        X_list_tmp, Y_list_tmp = emf.convert_lists_to_array.convert_xy_lists_to_arrays([X_hf, X_tmp], [Y_hf, Y_tmp])
+        m_tmp.set_data(X=X_list_tmp, Y=Y_list_tmp)
 
-        else:
-            print("doe method <{}> is not supported".format(doeIdx))
+    else:
+        print("doe method <{}> is not supported".format(doeIdx))
 
-        return IMSEc1, i
+    #dummy, Yq_var = self.predict(m_tmp,xq)
+    dummy, Yq_var = m_tmp.predict(xq)
+    IMSEc1 = 1 / xq.shape[0] * sum(phiqr.flatten() * Yq_var.flatten())
+
+    return IMSEc1, i
 
 
 class model_info:
@@ -1362,7 +1529,10 @@ class model_info:
             if self.doe_method == "None":
                 self.user_init = self.thr_count
             else:
-                self.user_init = surrogateJson["initialDoE"]
+                try:
+                    self.user_init = surrogateJson["initialDoE"]
+                except:
+                    self.user_init = -1 #automate
             ## convergence criteria
             self.thr_NRMSE = surrogateJson["accuracyLimit"]
             self.thr_t = surrogateJson["timeLimit"] * 60
@@ -1387,9 +1557,9 @@ class model_info:
 
         self.ll = self.xrange[:, 1] - self.xrange[:, 0]
         if self.user_init <0: # automated choice 8*D
-            n_init_tmp = np.ceil(8*self.x_dim/n_processor)*n_processor
+            n_init_tmp = int(np.ceil(8*self.x_dim/n_processor)*n_processor)
         else:
-            n_init_tmp = np.ceil(self.user_init/n_processor)*n_processor # Make every workers busy
+            n_init_tmp = int(np.ceil(self.user_init/n_processor)*n_processor) # Make every workers busy
         self.n_init = min(self.thr_count,n_init_tmp)
         self.doe_method = self.doe_method.lower()
 
@@ -1403,6 +1573,25 @@ class model_info:
             X_tmp=np.zeros((0,self.x_dim))
         return X_tmp
 
+    # def set_FEM(self, rv_name, do_parallel, y_dim, t_init):
+    #     self.rv_name = rv_name
+    #     self.do_parallel = do_parallel
+    #     self.y_dim = y_dim
+    #     self.t_init = t_init
+    #     self.total_sim_time = 0
+    #
+    # def run_FEM(self,X, id_sim):
+    #     tmp = time.time()
+    #     if self.is_model:
+    #         X, Y, id_sim = self.run_FEM_batch(X, id_sim, self.rv_name, self.do_parallel, self.y_dim, self.t_init, self.thr_t, runIdx=self.runIdx)
+    #
+    #     else:
+    #         X, Y, id_sim =  np.zeros((0, self.x_dim)), np.zeros((0, self.y_dim)), id_sim
+    #
+    #     self.total_sim_time += tmp
+    #     self.avg_sim_time = self.total_sim_time / id_sim
+    #
+    #     return X, Y, id_sim
 
 ### Additional functions
 
