@@ -4,13 +4,11 @@ All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
-
 1. Redistributions of source code must retain the above copyright notice, this
    list of conditions and the following disclaimer.
 2. Redistributions in binary form must reproduce the above copyright notice,
    this list of conditions and the following disclaimer in the documentation
    and/or other materials provided with the distribution.
-
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -21,7 +19,6 @@ ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
 ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 The views and conclusions contained in the software and documentation are those
 of the authors and should not be interpreted as representing official policies,
 either expressed or implied, of the FreeBSD Project.
@@ -31,7 +28,6 @@ THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
 THE SOFTWARE AND ACCOMPANYING DOCUMENTATION, IF ANY, PROVIDED HEREUNDER IS
 PROVIDED "AS IS". REGENTS HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT,
 UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
-
 *************************************************************************** */
 
 // Written: fmckenna
@@ -435,7 +431,7 @@ MainWindow::MainWindow(QWidget *parent)
     }
 
     PythonProgressDialog *theDialog=PythonProgressDialog::getInstance();
-    theDialog->appendInfoMessage("Welcome to quoFEM");
+    theDialog->appendInfoMessage("Welcome to quoFEM \n");
 }
 
 MainWindow::~MainWindow()
@@ -606,7 +602,7 @@ MainWindow::runApplication(QString program, QStringList args) {
     bool failed = false;
     if (!proc->waitForStarted(-1))
     {
-        qDebug() << "Failed to start the workflow!!! exit code returned: " << proc->exitCode();
+        qDebug() << "Failed to start the workflow, exit code returned: " << proc->exitCode();
         qDebug() << proc->errorString().split('\n');
         this->errorMessage("Failed to start the workflow!!!");
         failed = true;
@@ -614,7 +610,7 @@ MainWindow::runApplication(QString program, QStringList args) {
 
     if(!proc->waitForFinished(-1))
     {
-        qDebug() << "Failed to finish running the workflow!!! exit code returned: " << proc->exitCode();
+        qDebug() << "Failed to finish running the workflow, exit code returned: " << proc->exitCode();
         qDebug() << proc->errorString();
         this->errorMessage("Failed to finish running the workflow!!!");
         return -1;
@@ -623,7 +619,7 @@ MainWindow::runApplication(QString program, QStringList args) {
 
     if(0 != proc->exitCode())
     {
-        qDebug() << "Failed to run the workflow. exit code returned: " << proc->exitCode();
+        qDebug() << "Failed to run the workflow, exit code returned: " << proc->exitCode();
         qDebug() << proc->errorString();
         this->errorMessage("Failed to run the workflow");
         return proc->exitCode();
@@ -672,7 +668,7 @@ MainWindow::runApplication(QString program, QStringList args) {
 void MainWindow::onRunButtonClicked() {
 
     GoogleAnalytics::ReportLocalRun();
-    statusMessage("Running Analysis");
+    statusMessage("Running Analysis...");
 
     //
     // get program & input file from fem widget
@@ -732,13 +728,12 @@ void MainWindow::onRunButtonClicked() {
             {
                auto filesToCopy = fem->getCustomInputs();
 
-               foreach (QString filePath, filesToCopy)
-               {
-                 QFileInfo fileInfo(filePath);
-                 QString destination(templateDirectory + QDir::separator() + fileInfo.fileName());
-                 QFile::copy(filePath, destination);
-               }
-            }
+           foreach (QString filePath, filesToCopy)
+           {
+         QFileInfo fileInfo(filePath);
+         QString destination(templateDirectory + QDir::separator() + fileInfo.fileName());
+         QFile::copy(filePath, destination);
+           }
         }
     } else {
 
@@ -803,8 +798,10 @@ void MainWindow::onRunButtonClicked() {
     // open workflowapplications
     QString workflowApplications = appDIR + QDir::separator() + QString("applications") + QDir::separator() + QString("WorkflowApplications.json");
     QFile workflowApplicationsFile(workflowApplications);
+    QFileInfo workflowApplicationsFileInfo(workflowApplications);
+
     if (!workflowApplicationsFile.open(QFile::ReadOnly | QFile::Text)) {
-        QString message = QString("Error: could not open file") + workflowApplications;
+        QString message = QString("Error: could not open file ") + workflowApplicationsFileInfo.filePath();
         this->errorMessage(message);
         return;
     }
@@ -1568,8 +1565,7 @@ bool MainWindow::saveFile(const QString &fileName)
 
     // set current file
     setCurrentFile(fileName);
-    statusMessage(tr("---------------------- Json Saved ----------------------"));
-
+    statusMessage(tr("Json File Saved"));
     return true;
 }
 
@@ -1607,12 +1603,16 @@ void MainWindow::loadFile(const QString &fileName)
 
     // given the json object, create the C++ objects
     //inputWidget->inputFromJSON(jsonObj);
+
+    //this->inputFromJSON(jsonObj);
+
     if (this->inputFromJSON(jsonObj) != true) {
-        return;
+            return;
     };
 
+
     setCurrentFile(fileName);
-    statusMessage(tr("---------------------- Json Loaded ----------------------"));
+    //statusMessage(tr("Loading Json file from ") + fileInfo.filePath());
 }
 
 
@@ -1626,13 +1626,15 @@ void MainWindow::processResults(QString &dirName)
         //connect(result,SIGNAL(sendErrorMessage(QString)), this, SLOT(errorMessage(QString)));
         // connect(result,SIGNAL(sendStatusMessage(QString)), this, SLOT(errorMessage(QString)));
 
-
-        inputWidget->setSelection(QString("RES"));
-        if (result->processResults(dirName) != true) {
+        //auto a = result->processResults(dirName);
+        if (result->processResults(dirName)!=true) {
+            results->setResultWidget(result);
+            inputWidget->setSelection(QString("RES"));
             return;
         }
         results->setResultWidget(result);
-        statusMessage(tr("---------------------- Results Displayed ----------------------"));
+        inputWidget->setSelection(QString("RES"));
+        statusMessage(tr("Results Displayed ■\n"));
     } else
         qDebug() << "MainWindow:: processResults dir - No result widget";
 }
@@ -1654,7 +1656,7 @@ void MainWindow::processResults(QString &dakotaIN, QString &dakotaTAB)
             return;
         }
         inputWidget->setSelection(QString("RES"));
-        statusMessage(tr("---------------------- Results Displayed ----------------------"));
+
     } else
         qDebug() << "MainWindow:: processResults file - No result widget";
 }
@@ -1759,9 +1761,8 @@ void MainWindow::loadExamples()
 
     this->loadFile(pathToExample);
 
-    //this->statusMessage(QString("Example Loaded\n"));
 
-    this->statusMessage(QString("---------------------- Example Loaded ----------------------"));
+    this->statusMessage(QString("Example Loaded"));
 }
 
 
@@ -1862,7 +1863,6 @@ void MainWindow::about()
              <p>\
              This work is based on material supported by the National Science Foundation under grant 1612843<p>\
             ";
-
             QMessageBox msgBox;
     QSpacerItem *theSpacer = new QSpacerItem(500, 0, QSizePolicy::Minimum, QSizePolicy::Expanding);
     msgBox.setText(textAbout);

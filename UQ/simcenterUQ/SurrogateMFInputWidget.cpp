@@ -546,6 +546,7 @@ void SurrogateMFInputWidget::doAdvancedGP(bool tog)
     theKernelLabel->setVisible(tog);
     theNuggetLabel->setVisible(tog);
     theNuggetSelection->setVisible(tog);
+    //theNuggetVals->setVisible(tog);
 }
 
 
