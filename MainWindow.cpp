@@ -669,6 +669,7 @@ void MainWindow::onRunButtonClicked() {
 
     GoogleAnalytics::ReportLocalRun();
     statusMessage("Running Analysis...");
+    QApplication::processEvents();
 
     //
     // get program & input file from fem widget
@@ -979,7 +980,8 @@ void MainWindow::onRunButtonClicked() {
     */
 
     //    this->processResults(filenameOUT, filenameTAB);
-    this->processResults(tmpSimCenterDirectoryName);
+
+    this->processResults(tmpSimCenterDirectoryName);    
 }
 
 
