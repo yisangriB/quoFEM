@@ -727,13 +727,13 @@ void MainWindow::onRunButtonClicked() {
             if (subapplications[i] == "Custom")
             {
                auto filesToCopy = fem->getCustomInputs();
-
-           foreach (QString filePath, filesToCopy)
-           {
-         QFileInfo fileInfo(filePath);
-         QString destination(templateDirectory + QDir::separator() + fileInfo.fileName());
-         QFile::copy(filePath, destination);
-           }
+               foreach (QString filePath, filesToCopy)
+               {
+                 QFileInfo fileInfo(filePath);
+                 QString destination(templateDirectory + QDir::separator() + fileInfo.fileName());
+                 QFile::copy(filePath, destination);
+               }
+            }
         }
     } else {
 
