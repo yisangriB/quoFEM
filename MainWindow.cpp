@@ -669,7 +669,7 @@ void MainWindow::onRunButtonClicked() {
 
     GoogleAnalytics::ReportLocalRun();
     statusMessage("Running Analysis...");
-    QApplication::processEvents();
+    QCoreApplication::processEvents(); // for the immediate display
 
     //
     // get program & input file from fem widget

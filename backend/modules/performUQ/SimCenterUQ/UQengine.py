@@ -7,6 +7,8 @@ import time
 import sys
 import stat
 
+
+
 class UQengine:
 
     def __init__(self, inputArgs):
@@ -24,9 +26,20 @@ class UQengine:
         for del_path in del_paths:
             # change permission for  workflow_driver.bat
             self.workflowDriver_path = os.path.join(del_path, self.workflowDriver)
-            if os.path.exists(self.workflowDriver_path):
-                os.chmod(self.workflowDriver_path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
-            shutil.rmtree(del_path)
+            # if os.path.exists(self.workflowDriver_path):
+            #     os.chmod(self.workflowDriver_path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+
+            #Change permission
+            for root, dirs, files in os.walk(del_path):
+                for d in dirs:
+                    os.chmod(os.path.join(root, d), stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+                for f in files:
+                    os.chmod(os.path.join(root, f), stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+
+            try:
+               shutil.rmtree(del_path)
+            except Exception as msg:
+                self.exit(str(msg))
 
         del_outputs = glob.glob(os.path.join(self.work_dir, '*out'))
         for del_out in del_outputs:
@@ -68,8 +81,8 @@ class UQengine:
             Y = np.zeros((nsamp,self.y_dim))
             for ns in range(nsamp):
                 Y_tmp, id_sim_current = run_FEM(X[ns,:],id_sim+ns, self.rv_name, self.work_dir, workflowDriver, runIdx)
-                if Y_tmp.shape[1] != self.y_dim:
-                    msg = "model output <results.out> contains {} value(s) while the number of QoIs specified in quoFEM is {}".format(Y_tmp.shape[1],y_dim)
+                if Y_tmp.shape[0] != self.y_dim:
+                    msg = "model output <results.out> contains {} value(s) while the number of QoIs specified in quoFEM is {}".format(Y_tmp.shape[0],y_dim)
                     self.exit(msg)
                 Y[ns,:] = Y_tmp
                 if time.time() - self.t_init > self.t_thr:
@@ -203,7 +216,10 @@ def run_FEM(X, id_sim, rv_name, work_dir, workflowDriver, runIdx=0):
     os.chdir(current_dir_i)
     workflow_run_command = '{}/{}'.format(current_dir_i, workflowDriver)
     subprocess.check_call(workflow_run_command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-    print("RUNNING FEM: working directory {} created".format(id_sim + 1))
+    if runIdx==0:
+        print("RUNNING FEM: working directory {} created".format(id_sim + 1))
+    else:
+        print("RUNNING FEM: working directory {}-{} created".format(runIdx,id_sim + 1))
     #subprocess.check_call(workflow_run_command, shell=True, stdout=FNULL, stderr=subprocess.STDOUT)
     #
     # (4) reading results

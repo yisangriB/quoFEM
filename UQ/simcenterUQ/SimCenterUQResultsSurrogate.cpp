@@ -327,13 +327,25 @@ SimCenterUQResultsSurrogate::onSaveModelClicked()
 
     QFileInfo fileInfo(fileName);
     QString path = fileInfo.absolutePath();
-
-    QFile::copy(workingDir+QString("SimGpModel.pkl"), fileName);
-    QFile::copy(workingDir+QString("dakota.out"), fileName2);
-    //QFile::copy(workingDir+QString("templatedir"), path+"templatedir_SIM");
-
+    QString pkldir = workingDir+QString("SimGpModel.pkl");
+    QString jsondir = workingDir+QString("dakota.out");
     QString workflowDir1 = workingDir+QString("templatedir");
     QString workflowDir2 = path+QString("/templatedir_SIM");
+
+    if (QFile::exists(fileName))
+        QFile::remove(fileName);
+
+    if (QFile::exists(fileName2))
+        QFile::remove(fileName2);
+
+    QDir dir(workflowDir2);
+    dir.removeRecursively();
+
+    QFile::copy(pkldir, fileName);
+    QFile::copy(jsondir, fileName2);
+    //QFile::copy(workingDir+QString("templatedir"), path+"templatedir_SIM");
+
+
     bool directoryCopied = copyPath(workflowDir1, workflowDir2, true);
 
     lastPath =  QFileInfo(fileName).path();

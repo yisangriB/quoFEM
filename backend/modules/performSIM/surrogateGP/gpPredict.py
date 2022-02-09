@@ -146,7 +146,7 @@ def main(params_dir,surrogate_dir,json_dir,result_file, dakota_path):
         data = x_file.readlines()
         nrv = int(data[0])
         if nrv != nrv_sur:
-            msg = 'Error importing input data: Number of dimension inconsistent: surrogate model requires {} RV(s) but input has {} RV(s).\n'.format(nrv_sur, nrv)
+            msg = 'Error parsing surrogate model: Number of dimension inconsistent - surrogate model requires {} RV(s) but only {} RV(s) are defined in UI.\n'.format(nrv_sur, nrv)
             print(msg)
             error_file.write(msg)
             error_file.close()
@@ -161,7 +161,7 @@ def main(params_dir,surrogate_dir,json_dir,result_file, dakota_path):
             try:
                 id_map = rv_name_sur.index(name)
             except ValueError:
-                msg = 'Error importing input data: variable "{}" not identified.'.format(name)
+                msg = 'Error parsing surrogate model: variable "{}" not identified.'.format(name)
                 print(msg)
                 error_file.write(msg)
                 error_file.close()
@@ -176,7 +176,11 @@ def main(params_dir,surrogate_dir,json_dir,result_file, dakota_path):
             try:
                 id_map = g_name_sur.index(edp["name"])
             except ValueError:
-                msg = 'Error importing input data: qui "{}" not identified.'.format(name)
+                if len(g_name_sur) > 1:
+                    msg = 'Error parsing surrogate model: QoI "{}" not identified. Valid QoI names are {}'.format(edp["name"],g_name_sur)
+                else:
+                    msg = 'Error parsing surrogate model: QoI "{}" not identified. Please use "{}" instead of "{}"'.format(edp["name"],g_name_sur[0],edp["name"])
+
                 print(msg)
                 error_file.write(msg)
                 error_file.close()

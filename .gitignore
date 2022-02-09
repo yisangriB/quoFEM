@@ -50,6 +50,7 @@ uqFEM.pro.user
 applications/out/build/*
 backend/applications/
 backend/build/
+buildBackends.bat
 
 # .DS_Store files on Mac
 *.DS_Store

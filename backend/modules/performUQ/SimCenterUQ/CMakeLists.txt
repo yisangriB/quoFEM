@@ -4,5 +4,6 @@
 simcenter_add_python_script(SCRIPT parseSimCenterUQ.py)
 #simcenter_add_python_script(SCRIPT SimCenterUQFEM.py)
 simcenter_add_python_script(SCRIPT surrogateBuild.py)
+simcenter_add_python_script(SCRIPT UQengine.py)
 
 

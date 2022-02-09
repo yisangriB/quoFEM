@@ -95,14 +95,18 @@ for edp in my_edps:
 femProgram = fem_data["program"]
 print(femProgram)
 
-if run_type in ['runningLocal']:
-    os.chmod(workflow_driver, stat.S_IXUSR | stat.S_IRUSR | stat.S_IXOTH)
 
-#command = Dakota + ' -input dakota.in -output dakota.out -error dakota.err'
+# sy - commented out below line because of the multiple models cannot find all workflow_driver file. 
+#      I think it will work since permission is arealdy modified in FEM workflow driver generator
+
+# if run_type in ['runningLocal']:
+#     os.chmod(workflow_driver, stat.S_IXUSR | stat.S_IRUSR | stat.S_IXOTH)
+
+# command = Dakota + ' -input dakota.in -output dakota.out -error dakota.err'
 
 #Change permision of workflow driver
-st = os.stat(workflow_driver)
-os.chmod(workflow_driver, st.st_mode | stat.S_IEXEC)
+# st = os.stat(workflow_driver)
+# os.chmod(workflow_driver, st.st_mode | stat.S_IEXEC)
 
 # change dir to the main working dir for the structure
 os.chdir("../")
@@ -138,7 +142,9 @@ if run_type in ['runningLocal']:
     # subprocess.Popen(simCenterUQCommand, shell=True).wait()
     
     try:
-        result = subprocess.check_output(simCenterUQCommand, stderr=subprocess.STDOUT, shell=True)
+        f = open("cmd.err", "w")
+        #result = subprocess.check_output(simCenterUQCommand, stderr=subprocess.STDOUT, shell=True)
+        result = subprocess.check_output(simCenterUQCommand, stderr=f, shell=True)
         returncode = 0
         print('DONE SUCESS')
     except subprocess.CalledProcessError as e:

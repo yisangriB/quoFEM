@@ -855,7 +855,7 @@ QStringList FEM::parseGPInputs(QString file1){
     }
 
     QFile file(file1);
-    QString appName, mainScriptDir,postScriptDir;
+    QString appName, mainScriptDir,postScriptDir, paramScriptDir;
     QStringList qoiNames;
     thresVal = new QLineEdit;
 
@@ -864,11 +864,12 @@ QStringList FEM::parseGPInputs(QString file1){
         val=file.readAll();
         QJsonDocument doc = QJsonDocument::fromJson(val.toUtf8());
         QJsonObject jsonSur = doc.object();
+        QJsonObject jsonHF  = jsonSur["highFidelityInfo"].toObject();
         file.close();
 
         auto GPidentifier = jsonSur.find("kernName"); // should be the right .json file
         if (!jsonSur.isEmpty() && GPidentifier != jsonSur.end()) {
-            bool from_data=!jsonSur["doSimulation"].toBool();
+            bool from_data=!jsonHF["doSimulation"].toBool();
             QJsonArray RVArray = jsonSur["randomVariables"].toArray();
             QJsonArray QoIArray = jsonSur["ylabels"].toArray();
             foreach (const QJsonValue & v, RVArray){
@@ -903,6 +904,8 @@ QStringList FEM::parseGPInputs(QString file1){
                 appName = jsonFEM["program"].toString();
                 mainScriptDir = jsonFEM["inputFile"].toString();
                 postScriptDir = jsonFEM["postprocessScript"].toString();
+                paramScriptDir = jsonFEM["parametersScript"].toString();
+
             }
         } else {
             appName = "NA";
