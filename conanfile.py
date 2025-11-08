@@ -1,19 +1,27 @@
 from conans import ConanFile
 
-class quoFEM(ConanFile):
-    settings = "os", "compiler", "build_type", "arch"
+class QuoFEM(ConanFile):
+    name = "quoFEM"
     version = "0.0.9"
     license = "BSD"
     author = "NHERI SimCenter"
     url = "https://github.com/NHERI-SimCenter/quoFEM"
     description = "NHERI SimCenter R2D Tool"
-    settings = "os", "compiler", "build_type", "arch"
+    settings = "os", "arch", "compiler", "build_type"
     generators = "qmake"
-    requires = "jansson/2.13.1", \
-               "zlib/1.2.11", \
-               "libcurl/7.72.0"
     build_policy = "missing"
 
+    # Runtime/host libraries
+    requires = (
+        "jansson/2.13.1",
+        "zlib/1.2.11"
+    )
+
+    def requirements(self):
+            
+        if self.settings.os != "Linux":
+            self.requires("libcurl/8.4.0")
+            
     def configure(self):
         if self.settings.os == "Windows":
             self.options["lapack"].visual_studio = True

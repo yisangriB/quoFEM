@@ -1,6 +1,7 @@
+shapely
 numpy
 scipy
-sklearn
+scikit-learn
 pandas
 mpi4py
 GPy  

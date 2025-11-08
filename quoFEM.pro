@@ -4,12 +4,16 @@
 #
 #-------------------------------------------------
 
-QT       += core gui charts concurrent network printsupport 3dcore 3drender 3dextras webenginewidgets webengine
+message("LIBS1: $$LIBS")
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+QT += core gui charts concurrent network printsupport 3dcore 3drender 3dextras
+QT += webenginewidgets webenginecore
+
+message("LIBS2: $$LIBS")
 
 CONFIG += c++17
-QMAKE_APPLE_DEVICE_ARCHS="x86_64"
+#QMAKE_APPLE_DEVICE_ARCHS="x86_64"
+#QMAKE_APPLE_DEVICE_ARCHS="arm64"
 
 TARGET = quoFEM
 TEMPLATE = app
@@ -23,8 +27,17 @@ INCLUDEPATH += ../SimCenterCommon/Workflow/WORKFLOW
 INCLUDEPATH += FEM
 INCLUDEPATH += EDP
 
-include($$PWD/ConanHelper.pri)
 
+win32 {
+   include($$PWD/ConanHelper.pri)
+} else {
+   CONFIG += conan_basic_setup
+   include($$OUT_PWD/conanbuildinfo.pri)
+}
+
+message("LIBS3: $$LIBS")
+
+    
 win32::LIBS+=Advapi32.lib
 
 # linux:LIBS += /usr/lib/x86_64-linux-gnu/libcurl.so
@@ -84,6 +97,7 @@ FORMS    += mainwindow.ui
 RESOURCES += \
     styles.qrc
 
+    
 # Path to build directory
 win32 {
    DESTDIR = $$shell_path($$OUT_PWD)
@@ -116,4 +130,17 @@ export(copydata.commands)
 QMAKE_EXTRA_TARGETS += first copydata CopyDLLs
 
 }
+
+EXAMPLES_SRC = $$PWD/Examples
+
+macx {
+    QMAKE_POST_LINK += $$QMAKE_MKDIR $$shell_quote($$OUT_PWD/$$TARGET.app/Contents/MacOS/Examples) && \
+                       $$QMAKE_COPY_DIR $$shell_quote($$EXAMPLES_SRC) \
+                                         $$shell_quote($$OUT_PWD/$$TARGET.app/Contents/MacOS)
+}
+
+unix:!macx {
+    QMAKE_POST_LINK += $$QMAKE_MKDIR $$shell_quote($$OUT_PWD/Examples) && \
+                       $$QMAKE_COPY_DIR $$shell_quote($$EXAMPLES_SRC) $$shell_quote($$OUT_PWD)
+       }
 
