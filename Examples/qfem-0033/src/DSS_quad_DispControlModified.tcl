@@ -67,7 +67,7 @@ element SSPquad   1     1 2 3 4   1  "PlaneStrain" 1.0
 
 # Create analysis
 constraints Transformation
-test        NormDispIncr 1.0e-5 35 1
+test        NormDispIncr 1.0e-5 35 0
 algorithm   Newton
 numberer    RCM
 system      FullGeneral
@@ -77,7 +77,8 @@ analysis    Transient
 
 # Apply consolidation pressure
 set pNode [expr $sigvo / 2.0]
-pattern Plain 1 {Series -time {0 100 1e10} -values {0 1 1} -factor 1} {
+timeSeries Path 1 -time {0 100 1e10} -values {0 1 1} -factor 1
+pattern Plain 1 1 {
 	load 3  0.0  $pNode
 	load 4  0.0  $pNode
 }
@@ -85,8 +86,8 @@ updateMaterialStage -material 1 -stage 0
 
 analyze 100 1
 set vDisp [nodeDisp 3 2]
-set ts1 "{Series -time {100 80000 1.0e10} -values {1.0 1.0 1.0} -factor 1}"
-eval "pattern Plain 2 $ts1 {
+timeSeries Path 2 -time {100 80000 1.0e10} -values {1.0 1.0 1.0} -factor 1
+eval "pattern Plain 2 2 {
 	sp 3 2 $vDisp
 	sp 4 2 $vDisp
 }"
@@ -117,8 +118,8 @@ while {$numCycle <= $maxCycles} {
 	set hDisp [nodeDisp 3 1]
 	set currentTime [getTime]
 	set steps [expr $controlDisp / $strainIncr]
-	eval "timeSeries Path 2 -time {$currentTime [expr $currentTime + $steps] 1.0e10} -values {$hDisp $controlDisp $controlDisp} -factor 1"
-	pattern Plain 3 2 {
+	eval "timeSeries Path 3 -time {$currentTime [expr $currentTime + $steps] 1.0e10} -values {$hDisp $controlDisp $controlDisp} -factor 1"
+	pattern Plain 3 3 {
 		sp 3 1 1.0
 	}
 	set b [eleResponse 1 stress]
@@ -139,14 +140,14 @@ while {$numCycle <= $maxCycles} {
 	set currentTime [getTime]
 	
 	remove loadPattern 3
-	remove timeSeries 2
+	remove timeSeries 3
 	remove sp 3 1
 	
 	#impose 1/2 cycle 
 	set steps [expr ($controlDisp + $hDisp)/ $strainIncr]
-	eval "timeSeries Path 2 -time {$currentTime [expr $currentTime + $steps] 1.0e10} -values {$hDisp [expr -1.0 * $controlDisp] [expr -1.0 * $controlDisp]} -factor 1"
+	eval "timeSeries Path 3 -time {$currentTime [expr $currentTime + $steps] 1.0e10} -values {$hDisp [expr -1.0 * $controlDisp] [expr -1.0 * $controlDisp]} -factor 1"
 	
-	pattern Plain 3 2 {
+	pattern Plain 3 3 {
 		sp 3 1 1.0
 	}
 	
@@ -168,12 +169,12 @@ while {$numCycle <= $maxCycles} {
 	set currentTime [getTime]
 	
 	remove loadPattern 3
-	remove timeSeries 2
+	remove timeSeries 3
 	remove sp 3 1
 	set steps [expr ($controlDisp + $hDisp)/ $strainIncr]
-	eval "timeSeries Path 2 -time {$currentTime [expr $currentTime + $steps] 1.0e10} -values {$hDisp $controlDisp $controlDisp} -factor 1"
+	eval "timeSeries Path 3 -time {$currentTime [expr $currentTime + $steps] 1.0e10} -values {$hDisp $controlDisp $controlDisp} -factor 1"
 	
-	pattern Plain 3 2 {
+	pattern Plain 3 3 {
 		sp 3 1 1.0
 	}
 	while {[lindex $b 2] <= 0.0} {
@@ -193,7 +194,7 @@ while {$numCycle <= $maxCycles} {
 
 	set numCycle [expr $numCycle + 0.25]
 	remove loadPattern 3
-	remove timeSeries 2
+	remove timeSeries 3
 	puts " numCycle = $numCycle  maxCycles = $maxCycles"	
 }
 

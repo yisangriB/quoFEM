@@ -454,10 +454,10 @@ model BasicBuilder -ndm 2 -ndf 3
 set cFactor [expr $colArea*$dashpotCoeff]
 
 # timeseries object for force history
-set mSeries "Path -dt $motionDT -filePath $velocityFile -factor $cFactor"
+timeSeries Path 1 -dt $motionDT -filePath $velocityFile -factor $cFactor
 
 # loading object
-pattern Plain 10 $mSeries {
+pattern Plain 10 1 {
     load 1  1.0 0.0 0.0
 }
 puts "Dynamic loading created..."
